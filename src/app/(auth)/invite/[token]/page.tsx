@@ -8,6 +8,15 @@ import { db } from "@/db";
 import { invites } from "@/db/schema";
 import { WORKSPACE_NAME } from "@/lib/constants/defaults";
 
+/**
+ * invite tokens are uuids. A malformed or unparseable token must render the
+ * "not valid" notice, not 500 on Postgres's uuid cast, so non-uuid strings are
+ * rejected up front. This deliberately mirrors the exact uuid text form so a
+ * valid generated token always matches.
+ */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 interface InvitePageProps {
   params: Promise<{ token: string }>;
 }
@@ -43,6 +52,17 @@ function Notice({ title, body }: { title: string; body: string }) {
  */
 export default async function InvitePage({ params }: InvitePageProps) {
   const { token } = await params;
+
+  // A malformed token must not reach the database, where the uuid cast would
+  // raise 22P02 and turn a bad link into a server error.
+  if (!UUID_RE.test(token)) {
+    return (
+      <Notice
+        title="This invitation link is not valid"
+        body="Check that you copied the whole link from the email. If it still does not work, ask a club admin to send a new invitation."
+      />
+    );
+  }
 
   const [invite] = await db
     .select({
