@@ -1,6 +1,10 @@
-/**
- * Barrel for every Drizzle schema file. Populated in phase 3, where the tables
- * from docs/04-DATA-MODEL.md are defined one domain per file.
- */
-
-export {};
+export * from "@/db/schema/collaboration";
+export * from "@/db/schema/cycles";
+export * from "@/db/schema/enums";
+export * from "@/db/schema/issues";
+export * from "@/db/schema/modules";
+export * from "@/db/schema/profiles";
+export * from "@/db/schema/projects";
+export * from "@/db/schema/teams";
+export * from "@/db/schema/workspace";
+export * from "@/db/schema/workspace_content";

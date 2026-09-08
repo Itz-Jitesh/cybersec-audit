@@ -83,14 +83,70 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done and confirmed
 
 ---
 
-## Phase 3 — Database schema `[ ]`
+## Phase 3 — Database schema  `[~]` written, not yet applied
 
-**Blocked on:** Supabase project + `DATABASE_URL`.
+**Blocked on:** `DATABASE_URL` from a Supabase project.
 
-- [ ] Every enum, table and index from `docs/04-DATA-MODEL.md` as Drizzle schema files
-- [ ] Migrations generated and applied to Supabase
-- [ ] Hand-authored SQL for extensions, the `search_vector` generated column, and all triggers
-- [ ] Idempotent seed: workspace row, 3 teams, default state/label templates, 1 admin invite
+- [x] Every enum, table and index from `docs/04-DATA-MODEL.md` as Drizzle schema files
+- [x] Drizzle migration generated; a second `db:generate` reports no changes
+- [x] Hand-authored SQL for extensions, the `search_vector` generated column, and all triggers
+- [x] Idempotent seed: 3 teams and the bootstrap administrator invite
+- [ ] Migrations applied to Supabase
+- [ ] Seed executed twice against the real database
+
+### Run order
+
+Not simply "Drizzle then SQL", because the extensions have to exist before any
+table is created:
+
+1. `supabase/migrations/0001_extensions.sql`
+2. `drizzle/0000_*.sql` via `pnpm db:migrate`
+3. `supabase/migrations/0002_search_vector.sql`, then `0003_triggers.sql`
+
+### Decisions that departed from the documents
+
+Three gaps in `docs/04-DATA-MODEL.md` forced a choice. Each is listed here
+because each is a change the user should either confirm or overrule.
+
+- **`comments` and `comment_reactions` have no column list.** The data model
+  references comments in its index list, its trigger table and its RLS matrix,
+  but never defines the table. The columns implemented follow the feature
+  description in `docs/02-PRD.md` §4: `content_html`, `content_json`,
+  `is_edited`, and a reactions table keyed on `(comment_id, user_id, emoji)`.
+  Mentioned users are parsed out of the HTML by `fanout_notifications`, so
+  mentions need no table of their own.
+- **`invites.invited_by` and `teams.created_by` are now nullable.** The document
+  marks both not-null with a foreign key to `profiles`. The first administrator
+  has to be invited before any profile can exist, because `handle_new_user`
+  rejects an email with no open invite — so a not-null inviter makes the
+  workspace impossible to bootstrap. Null now means "created by the seed
+  script"; every invite made from the admin panel still carries a real inviter.
+- **There is no `workspaces` table.** The prompt pack asks the seed to insert a
+  workspace row, but the data model defines no such table and states there is
+  exactly one workspace. The name is therefore a constant, `WORKSPACE_NAME` in
+  `src/lib/constants/defaults.ts`, rather than a row.
+
+### Other notes
+
+- `auth.users` is not modelled in Drizzle. Declaring it made drizzle-kit emit a
+  `CREATE TABLE` for a table Supabase already owns, so the foreign key from
+  `profiles.id`, with its `ON DELETE CASCADE`, is added by hand at the top of
+  `0003_triggers.sql`.
+- `assign_issue_sequence` increments and reads `sequence_counter` in one
+  `UPDATE ... RETURNING`, so two concurrent inserts into the same project
+  serialise on the project row and cannot receive the same number.
+- `fanout_notifications` serves both the `comments` and `issue_activity`
+  triggers. Mention ids are collected into an array before the insert rather
+  than inside it, because `NEW` has no `content_html` field on the
+  `issue_activity` side and referencing it there would fail at execution time.
+- `pnpm db:seed` runs through Node's native TypeScript stripping, so no test
+  runner or transpiler was added for it.
+- **None of this SQL has been executed.** There is no Postgres available locally
+  — no `psql`, no Docker — so the migrations are verified only by the fact that
+  drizzle-kit generates them cleanly and regenerates to a no-op. Syntax errors
+  in the hand-authored trigger file would only surface on first apply.
+- `pnpm db:test:rls` shells out to `psql`, which is not installed on this
+  machine. Phase 4 needs either the Postgres client tools or the Supabase CLI.
 
 **DoD:** schema visible in the Supabase dashboard; `drizzle-kit push` is a no-op; seed runs twice cleanly.
 

@@ -17,6 +17,8 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: { url: databaseUrl },
   casing: "snake_case",
+  // Supabase owns auth, storage and realtime. Only public is ours to migrate.
+  schemaFilter: ["public"],
   strict: true,
   verbose: true,
 });
