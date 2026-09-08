@@ -83,7 +83,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done and confirmed
 
 ---
 
-## Phase 3 — Database schema  `[~]` written, not yet applied
+## Phase 3 — Database schema  `[~]` applied, awaiting review
 
 **Blocked on:** `DATABASE_URL` from a Supabase project.
 
@@ -91,8 +91,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done and confirmed
 - [x] Drizzle migration generated; a second `db:generate` reports no changes
 - [x] Hand-authored SQL for extensions, the `search_vector` generated column, and all triggers
 - [x] Idempotent seed: 3 teams and the bootstrap administrator invite
-- [ ] Migrations applied to Supabase
-- [ ] Seed executed twice against the real database
+- [x] Migrations applied to Supabase
+- [x] Seed executed twice against the real database
 
 ### Run order
 
@@ -141,10 +141,20 @@ because each is a change the user should either confirm or overrule.
   `issue_activity` side and referencing it there would fail at execution time.
 - `pnpm db:seed` runs through Node's native TypeScript stripping, so no test
   runner or transpiler was added for it.
-- **None of this SQL has been executed.** There is no Postgres available locally
-  — no `psql`, no Docker — so the migrations are verified only by the fact that
-  drizzle-kit generates them cleanly and regenerates to a no-op. Syntax errors
-  in the hand-authored trigger file would only surface on first apply.
+- **Applied on 8 Sep 2026, verified 8/8 PASS.** With no psql, CLI or Docker on
+  this machine, the three hand-authored files ran through
+  `src/db/apply-sql.ts` (the same `postgres` driver as the seed script) in the
+  documented run order, with `pnpm db:migrate` between 0001 and 0002. The
+  direct `db.<ref>.supabase.co` host is IPv6-only and unreachable here, so
+  `DATABASE_URL` uses the session pooler at `aws-0-ap-northeast-1` with
+  `sslmode=require`; the region was located by probing the shared gateways
+  with the project's own credentials. `src/db/verify-db.ts` reports the
+  evidence: extensions, 28 tables, 8 triggers, the `search_vector` column and
+  its GIN index, one recorded Drizzle migration, three seeded teams, one open
+  admin invite. Seed run 2 changed nothing, proving idempotency, and
+  `db:generate` after apply reports no schema changes. First-apply NOTICEs
+  from 0003 ("does not exist, skipping") are the idempotent drop statements,
+  not errors.
 - `pnpm db:test:rls` shells out to `psql`, which is not installed on this
   machine. Phase 4 needs either the Postgres client tools or the Supabase CLI.
 
