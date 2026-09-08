@@ -14,10 +14,11 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { SidebarItem } from "@/components/layout/sidebar-item";
 import { SidebarProjectTree } from "@/components/layout/sidebar-project-tree";
+import { CreateProjectModal } from "@/components/projects/create-project-modal";
 import { MemberAvatar } from "@/components/shared/member-avatar";
 import {
   DropdownMenu,
@@ -27,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { NavigationTree } from "@/db/queries/navigation";
+import type { MemberRow } from "@/db/queries/project";
 import type { CurrentUser } from "@/lib/auth/session";
 import { WORKSPACE_NAME } from "@/lib/constants/defaults";
 import { cn } from "@/lib/utils";
@@ -36,6 +38,9 @@ interface AppSidebarProps {
   user: CurrentUser;
   tree: NavigationTree;
   canInvite: boolean;
+  /** Mirrors the server guard; createProject re-checks it regardless. */
+  canCreateProject: boolean;
+  workspaceMembers: MemberRow[];
   unreadCount: number;
   signOutAction: () => Promise<void>;
 }
@@ -51,10 +56,13 @@ export function AppSidebar({
   user,
   tree,
   canInvite,
+  canCreateProject,
+  workspaceMembers,
   unreadCount,
   signOutAction,
 }: AppSidebarProps) {
   const pathname = usePathname();
+  const [createOpen, setCreateOpen] = useState(false);
   const { isCollapsed, toggleCollapsed, isExpanded, toggleSection } =
     useSidebarStore();
 
@@ -208,10 +216,11 @@ export function AppSidebar({
             {user.displayName}
           </span>
         )}
-        {!isCollapsed && (
+        {!isCollapsed && canCreateProject && (
           <button
             type="button"
             aria-label="New project"
+            onClick={() => setCreateOpen(true)}
             className="rounded-sm p-1 text-text-300 transition-colors duration-[120ms] ease-out hover:bg-bg-80 hover:text-text-100"
           >
             <Plus size={14} strokeWidth={1.5} />
@@ -231,6 +240,13 @@ export function AppSidebar({
           )}
         </button>
       </div>
+
+      <CreateProjectModal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        teams={tree.teams.map((team) => ({ id: team.id, name: team.name }))}
+        members={workspaceMembers}
+      />
     </aside>
   );
 }

@@ -351,17 +351,111 @@ real session. The workspace also has no projects or issues, so the sidebar tree
 and the dashboard will both be empty on first view — that is correct behaviour,
 not a fault, and phase 7 is what fills them.
 
-## Phase 7 — Teams & projects `[ ]`
+## Phase 7 — Teams & projects  `[~]` awaiting review
 
-- [ ] Team CRUD scoped to admin/lead, plus the team detail page
-- [ ] Project create modal: name, auto-suggested identifier, team, lead, icon
-- [ ] On create: seed 6 default states, 7 default labels, creator as project admin
-- [ ] Project settings: general, members, states editor with drag-reorder, labels editor, danger zone
-- [ ] Favorites, appearing in the sidebar
+- [x] Team CRUD, admin scoped, reachable from `/admin`
+- [x] Team detail page with leads, members and a project grid
+- [x] Project create modal: name, auto-suggested identifier with a debounced
+      uniqueness check, team, lead, icon
+- [x] On create, in one transaction: 6 default states, 7 default labels, the
+      creator as a project admin
+- [x] Project settings: general, members, states editor with drag reorder,
+      labels editor, danger zone
+- [x] Favorites, appearing in the sidebar
+- [x] `supabase/tests/projects.sql` — 9 assertions, green
+- [ ] Exercised through the UI by a human with a real session
 
-**DoD:** you can create a team, create a project in it, and its states and labels exist automatically.
+### The finding that matters most in this phase
 
----
+**The application's database role bypasses row level security.** `DATABASE_URL`
+connects as Supabase's `postgres` role, which carries `BYPASSRLS`. Verified
+directly:
+
+```
+usr: postgres | superuser: false | bypassrls: true
+```
+
+Everything read or written through Drizzle — which is every Server Component and
+every Server Action — is therefore **unconstrained by the policies in
+`0004_rls.sql`**. Those policies still govern the Supabase client path, and the
+RLS suite that exercises them is still meaningful, but they are not what stands
+between a member and another team's data at runtime.
+
+`docs/03-TRD.md` §3 anticipates this and permits it: the query "explicitly
+scopes by membership". That is what this phase does — every function in
+`src/db/queries/project.ts` scopes by membership, and every page calls
+`assertCan` before reading. But it is a discipline rather than a mechanism: one
+forgotten guard in a future phase is a silent cross-team leak that no test
+currently catches, because the RLS suite exercises a path the application does
+not use.
+
+**This is worth a decision before phase 8**, which is where the volume of
+queries increases sharply. The options, roughly in order of cost:
+
+1. Point the runtime connection at a non-superuser role and keep the `postgres`
+   role for migrations and the seed only. RLS then applies to application
+   queries and becomes a real second layer rather than a parallel one.
+2. Set `role` and `request.jwt.claims` per request on the runtime connection so
+   Postgres evaluates policies as the calling user — the pattern `docs/03-TRD.md`
+   §3 names first.
+3. Keep explicit scoping, and add a test that asserts cross-team isolation
+   through the application's own query functions rather than through raw SQL.
+
+Doing nothing is also a choice, but it should be a deliberate one: at present
+the `assertCan` call in each action is not a second layer of defence. It is the
+only one.
+
+### Notes from this phase
+
+- `createProject` runs its four inserts in one transaction. A project with no
+  states cannot hold an issue, and a project whose creator is not a member of it
+  is unusable by the person who just made it, so a partial success would be
+  worse than a failure.
+- `reorderState` gives the moved row the midpoint of its two new neighbours, so
+  a drag is a single-row update however long the list is and no other row is
+  rewritten.
+- `deleteState` refuses in three cases, each with its own code: the state holds
+  issues (`STATE_IN_USE`), it is the last one (`LAST_STATE`), or it is the
+  default (`DEFAULT_STATE`). The database is the backstop — `issues.state_id` is
+  not null — but the action checks first so the user gets a sentence rather than
+  a constraint violation.
+- Deleting a label is allowed even when issues carry it, because `issue_labels`
+  cascades and a tag costs nothing to reapply. Deleting a state is not, because
+  an issue must be in some state. The asymmetry is deliberate.
+- Both destructive dialogs require the name to be typed, and both actions
+  re-check that string server-side. A dialog is a courtesy; the check is the
+  control.
+- `removeProjectMember` refuses to remove the last project admin, which would
+  leave the project unmanageable by anyone below workspace admin.
+- The identifier is fixed after creation. Changing it would rewrite the id of
+  every issue that has already been linked or mentioned somewhere.
+- `@dnd-kit/modifiers` was briefly added for `restrictToVerticalAxis` and then
+  removed, since the phase permits only `core` and `sortable`. The modifier is
+  four lines written inline instead. `@dnd-kit/utilities` is a real peer of
+  `sortable` and is declared explicitly.
+- Team management lives on `/admin` rather than waiting for phase 11. Actions
+  with no way to reach them are not a feature, and without this there would be
+  no way to create a team at all.
+- `Toaster` was missing from the root layout. Every action in this phase reports
+  its outcome through a toast, so none of them would have said anything.
+
+### Verified
+
+- Typecheck, lint and production build clean; no raw hex outside the vendored
+  shadcn primitives.
+- All 21 exported server actions call `assertCan` — checked by counting exports
+  against guards per file.
+- New project suite: 9 assertions green, covering six states, seven labels, one
+  project admin, exactly one default state, case-insensitive identifier
+  uniqueness, refusal to delete a state that holds issues, and the issue
+  sequence starting at one and incrementing without gaps.
+- RLS suite 36 green and auth suite 11 green, both unaffected.
+
+### Not verified
+
+No human has signed in, so none of this has been driven through the UI. The
+drag-reorder, the debounced identifier check and the typed-confirmation dialogs
+are all built to the spec and typecheck, but they have not been used.
 
 ## Phase 8 — Issues core `[ ]`
 

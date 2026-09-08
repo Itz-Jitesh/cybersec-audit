@@ -3,6 +3,8 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Header } from "@/components/layout/header";
 import { getUnreadNotificationCount } from "@/db/queries/home";
 import { getNavigationTree } from "@/db/queries/navigation";
+import { getWorkspaceMembers } from "@/db/queries/project";
+import { assertCan } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
 
 const ADMIN_ROLES = new Set(["admin", "president", "co_president"]);
@@ -18,10 +20,21 @@ export default async function AppLayout({
   const user = await requireUser();
   const isAdmin = ADMIN_ROLES.has(user.role);
 
-  const [tree, unreadCount] = await Promise.all([
+  const [tree, unreadCount, workspaceMembers] = await Promise.all([
     getNavigationTree(user.id, isAdmin),
     getUnreadNotificationCount(user.id),
+    getWorkspaceMembers(),
   ]);
+
+  // A workspace admin can create a project anywhere; a team lead can create one
+  // in a team they lead. Anyone who leads at least one visible team gets the
+  // control, and createProject re-checks the specific team on submit.
+  const leadsSomeTeam = await Promise.all(
+    tree.teams.map((team) =>
+      assertCan(user, { kind: "team.manage", teamId: team.id }),
+    ),
+  );
+  const canCreateProject = leadsSomeTeam.some((result) => result.ok);
 
   return (
     <div className="flex h-dvh overflow-hidden">
@@ -29,6 +42,8 @@ export default async function AppLayout({
         user={user}
         tree={tree}
         canInvite={isAdmin}
+        canCreateProject={canCreateProject}
+        workspaceMembers={workspaceMembers}
         unreadCount={unreadCount}
         signOutAction={signOut}
       />

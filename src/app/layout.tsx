@@ -3,6 +3,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
+import { Toaster } from "@/components/ui/sonner";
+
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
@@ -29,7 +31,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Every server action reports its outcome through a toast. */}
+        <Toaster position="bottom-right" />
+      </body>
     </html>
   );
 }
