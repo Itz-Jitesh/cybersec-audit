@@ -287,18 +287,69 @@ allowlist, enable TOTP, and put the project's publishable key in
 `.env.local` — it currently still holds the placeholder from phase 1. The
 bootstrap administrator invite for `itsjitesh.work@gmail.com` is open and valid.
 
-## Phase 6 — App shell `[ ]`
+## Phase 6 — App shell  `[~]` awaiting review
 
-- [ ] `(app)/layout.tsx` with sidebar and header
-- [ ] `AppSidebar` with all sections, collapse, persisted state
-- [ ] `SidebarProjectTree` reading real teams and projects
-- [ ] `Header` with breadcrumbs, new-issue button, bell, user menu
-- [ ] `/home` dashboard with real stat queries
-- [ ] `loading.tsx`, `error.tsx`, `not-found.tsx` at each segment
+- [x] `(app)/layout.tsx` with sidebar and header
+- [x] `AppSidebar` with all sections, collapse, persisted state, `Cmd+\` toggle
+- [x] `SidebarProjectTree` reading real teams and projects
+- [x] `Header` with breadcrumbs, new-issue button, bell, user menu
+- [x] `/home` dashboard with real stat queries
+- [x] `loading.tsx` and `error.tsx` at every segment, `not-found.tsx` where a
+      dynamic segment can genuinely miss
+- [x] A page behind every sidebar link, so no link leads to a 404
+- [ ] Seen by a human with a real session
 
-**DoD:** the whole information architecture is navigable; every route renders a shell.
+### Notes from this phase
 
----
+- The navigation tree is three flat queries rather than one relational query
+  with `with`. The shape the sidebar needs is a grouping the database cannot
+  return directly, and a nested query would fan out into a join per project.
+- Every `/home` figure is a SQL aggregate. Counting in the application would
+  mean fetching every assigned issue in order to throw all but the number away,
+  which `docs/03-TRD.md` §3 rules out.
+- A workspace administrator sees every team in the sidebar; everyone else sees
+  only their own. That mirrors the RLS boundary, so the tree does not advertise
+  teams the user cannot open.
+- Projects start collapsed and teams start expanded. A team with eight projects
+  would otherwise open into a wall of forty rows.
+- Sidebar shape is a preference, so it lives in localStorage through a zustand
+  `persist` store and never reaches the server.
+- Breadcrumbs are derived from the path against the tree the shell already
+  loaded, so they cost no extra query. A segment with no match is dropped
+  rather than rendered raw, because a uuid in a breadcrumb tells nobody
+  anything.
+
+### Two defects fixed while building this
+
+- **The kitchen sink had become unreachable.** Phase 5's middleware protects
+  every route that is not explicitly public, which silently included
+  `/dev/kitchen-sink` — the page that exists to be looked at during review.
+  `/dev` is now public in development only, and the directory is deleted
+  wholesale in phase 12, so it is never reachable in production.
+- **Google's brand hexes were sitting in `src/app`.** The mark is now served
+  from `public/brand/google-mark.svg`. Those colours are fixed by Google and
+  must *not* follow a re-theme, which is precisely what a raw hex inside a
+  component would invite.
+
+### Verified
+
+- Typecheck, lint and production build clean; no raw hex outside the vendored
+  shadcn primitives; no secret name or value in the client bundle.
+- All six shell and dashboard queries executed against the live database
+  through a temporary probe route, which has been removed. Confirming this
+  mattered: these run on the very first sign-in, so a malformed one would have
+  greeted the first real user with an error page.
+- Route protection re-checked after the middleware change: `/dev/kitchen-sink`
+  serves 200, the removed probe is a 404, and `/`, `/home`, `/my-issues` and a
+  project route all redirect to `/sign-in` without a session.
+- RLS suite 36 green, auth suite 11 green.
+
+### Not verified
+
+Nobody has signed in yet, so the authenticated shell has not been rendered by a
+real session. The workspace also has no projects or issues, so the sidebar tree
+and the dashboard will both be empty on first view — that is correct behaviour,
+not a fault, and phase 7 is what fills them.
 
 ## Phase 7 — Teams & projects `[ ]`
 
