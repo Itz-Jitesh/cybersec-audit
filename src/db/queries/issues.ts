@@ -5,8 +5,10 @@ import {
   asc,
   desc,
   eq,
+  gte,
   inArray,
   isNull,
+  lte,
   or,
   type SQL,
   sql,
@@ -81,6 +83,34 @@ export interface IssueListItem {
 }
 
 /**
+ * Map the API orderBy field to the column, then apply the direction.
+ * Sorting by state is done via the states table; everything else maps to an
+ * issues column. The secondary sort is always sortOrder so rows with the same
+ * primary key stay stable.
+ */
+function buildOrderBy(filters: IssueFilters) {
+  const direction = filters.sortDirection === "desc" ? desc : asc;
+
+  const primary =
+    filters.orderBy === "created_at"
+      ? issues.createdAt
+      : filters.orderBy === "updated_at"
+        ? issues.updatedAt
+        : filters.orderBy === "target_date"
+          ? issues.targetDate
+          : filters.orderBy === "priority"
+            ? issues.priority
+            : filters.orderBy === "name"
+              ? issues.name
+              : filters.orderBy === "state"
+                ? states.sequence
+                : issues.sortOrder;
+
+  // Secondary sort on sortOrder keeps rows with the same primary key stable.
+  return [direction(primary), asc(issues.sortOrder)];
+}
+
+/**
  * One query for the whole list.
  *
  * Assignees, labels and modules are aggregated into JSON inside the query
@@ -112,6 +142,74 @@ export async function getIssuesForProject(
 
   if (filters.cycleIds?.length) {
     conditions.push(inArray(issues.cycleId, filters.cycleIds));
+  }
+
+  if (filters.moduleIds?.length) {
+    conditions.push(
+      inArray(
+        issues.id,
+        db
+          .select({ id: moduleIssues.issueId })
+          .from(moduleIssues)
+          .where(inArray(moduleIssues.moduleId, filters.moduleIds)),
+      ),
+    );
+  }
+
+  if (filters.stateGroups?.length) {
+    conditions.push(
+      inArray(
+        issues.stateId,
+        db
+          .select({ id: states.id })
+          .from(states)
+          .where(inArray(states.group, filters.stateGroups as (typeof states.group.enumValues)[number][])),
+      ),
+    );
+  }
+
+  if (filters.createdByIds?.length) {
+    conditions.push(inArray(issues.createdBy, filters.createdByIds));
+  }
+
+  if (filters.targetDate?.value) {
+    const { op, value, valueTo } = filters.targetDate;
+    if (op === "between" && valueTo) {
+      conditions.push(
+        and(
+          gte(issues.targetDate, value),
+          lte(issues.targetDate, valueTo),
+        ) as SQL,
+      );
+    } else if (op === "before") {
+      conditions.push(lte(issues.targetDate, value));
+    } else if (op === "after") {
+      conditions.push(gte(issues.targetDate, value));
+    } else if (op === "on") {
+      conditions.push(eq(issues.targetDate, value));
+    }
+  }
+
+  // Assignee and label filters require EXISTS subqueries — an issue matches if
+  // it has at least one assignee/label in the selected set.
+  if (filters.assigneeIds?.length) {
+    conditions.push(
+      sql`exists (
+        select 1 from ${issueAssignees}
+        where ${issueAssignees.issueId} = ${issues.id}
+        and ${issueAssignees.userId} in ${filters.assigneeIds}
+      )` as SQL,
+    );
+  }
+
+  if (filters.labelIds?.length) {
+    conditions.push(
+      sql`exists (
+        select 1 from ${issueLabels}
+        where ${issueLabels.issueId} = ${issues.id}
+        and ${issueLabels.labelId} in ${filters.labelIds}
+      )` as SQL,
+    );
   }
 
   if (filters.search) {
@@ -209,7 +307,7 @@ export async function getIssuesForProject(
       sql`true`,
     )
     .where(and(...conditions))
-    .orderBy(asc(states.sequence), asc(issues.sortOrder))
+    .orderBy(...buildOrderBy(filters))
     .limit(filters.limit)
     .offset(filters.offset);
 

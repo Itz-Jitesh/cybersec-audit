@@ -147,18 +147,56 @@ export const bulkUpdateSchema = z.object({
   archive: z.boolean().optional(),
 });
 
-/** Grouping is fixed to state in phase 8; the rest arrive with the filter bar. */
+export const groupBySchema = z.enum([
+  "state",
+  "priority",
+  "assignee",
+  "label",
+  "cycle",
+  "module",
+]);
+
+export const orderBySchema = z.enum([
+  "sort_order",
+  "created_at",
+  "updated_at",
+  "target_date",
+  "priority",
+  "name",
+  "state",
+]);
+
+export const sortDirectionSchema = z.enum(["asc", "desc"]);
+
+/**
+ * Matches docs/04-DATA-MODEL.md §6 filters shape. The data model is
+ * authoritative; this validator is the boundary that keeps arbitrary JSON out
+ * of the query.
+ */
 export const issueFilterSchema = z.object({
   projectId: z.string().uuid(),
   stateIds: z.array(z.string().uuid()).optional(),
+  stateGroups: z.array(z.enum(["backlog", "unstarted", "started", "completed", "cancelled"])).optional(),
   priorities: z.array(prioritySchema).optional(),
   assigneeIds: z.array(z.string().uuid()).optional(),
   labelIds: z.array(z.string().uuid()).optional(),
   cycleIds: z.array(z.string().uuid()).optional(),
+  moduleIds: z.array(z.string().uuid()).optional(),
+  createdByIds: z.array(z.string().uuid()).optional(),
+  targetDate: z
+    .object({
+      op: z.enum(["before", "after", "on", "between"]),
+      value: dateSchema,
+      valueTo: dateSchema.optional(),
+    })
+    .optional(),
   search: z.string().trim().max(200).optional(),
   includeArchived: z.boolean().default(false),
   limit: z.number().int().min(1).max(500).default(200),
   offset: z.number().int().min(0).default(0),
+  groupBy: groupBySchema.default("state"),
+  orderBy: orderBySchema.default("sort_order"),
+  sortDirection: sortDirectionSchema.default("asc"),
 });
 
 export type IssueFilters = z.infer<typeof issueFilterSchema>;

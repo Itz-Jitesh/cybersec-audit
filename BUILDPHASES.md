@@ -557,17 +557,29 @@ and the bulk bar have never been rendered with real data by a person. Everything
 above is the database and the server actions; the UI is built to spec and
 compiles, and that is a weaker claim.
 
-## Phase 9 — Views & filtering `[ ]`
+## Phase 9 — Views & filtering `[~]`
 
 - [ ] Kanban with dnd-kit: cross-column state change, intra-column reorder, optimistic
 - [ ] Calendar with drag-to-reschedule
 - [ ] Spreadsheet with sticky first column, sorting, inline editing
-- [ ] `FilterBar`: filters, group-by, sort, display properties
+- [x] `FilterBar`: filters (state, priority, assignee, label, cycle, module, target date), group-by (state/priority/assignee/label/cycle/module), sort (7 fields × asc/desc)
+- [x] List layout dynamic grouping driven by the group-by control
 - [ ] Per-user layout and filter persistence, plus the `views` table for saved views
 - [ ] Saved Views CRUD with private/public access
 - [ ] Virtualisation for list and spreadsheet above 100 rows
 
 **DoD:** all four layouts render the same filtered set; switching layouts preserves filters.
+
+### Verified
+
+- `FilterBar` component: multi-select popovers for each filter dimension, group-by and sort popovers, search input, clear-all, active filter count badge
+- `ListLayout` `buildGroups()` handles all six group-by modes including "Unassigned"/"No label"/"No cycle"/"No module" buckets
+- Filter state flows `FilterBar → IssuesView → listIssues` action; query conditions added for `moduleIds`, `stateGroups`, `createdByIds`, `targetDate` (4 ops), `assigneeIds`/`labelIds` via EXISTS subqueries
+- ORDER BY maps the seven `orderBy` fields to columns; typecheck and lint both clean
+
+### Not verified
+
+Kanban, calendar, spreadsheet, virtualization, saved views, and per-user persistence are still unstarted. The list view filters and groups but the other three layouts remain to be built.
 
 ---
 

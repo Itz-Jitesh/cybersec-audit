@@ -1,6 +1,7 @@
 "use client";
 
 import { listIssues } from "@/actions/issue-list";
+import type { PartialFilters } from "@/components/issues/filter-bar";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
 import { IssuesView } from "@/components/issues/issues-view";
 import type { IssueLabelRef, IssueListItem } from "@/db/queries/issues";
@@ -25,8 +26,11 @@ export function IssuesClient(props: {
   return (
     <IssuesView
       {...props}
-      fetchIssues={async () => {
-        const result = await listIssues({ projectId: props.projectId });
+      fetchIssues={async (filters?: PartialFilters) => {
+        const result = await listIssues({
+          projectId: props.projectId,
+          ...filters,
+        });
         if (!result.ok) throw new Error(result.error);
         return result.data;
       }}

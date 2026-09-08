@@ -15,6 +15,7 @@ import {
   updateIssue,
 } from "@/actions/issues";
 import { BulkActionBar } from "@/components/issues/bulk-action-bar";
+import { FilterBar, type PartialFilters } from "@/components/issues/filter-bar";
 import { IssueCreateModal } from "@/components/issues/issue-create-modal";
 import type { IssueRowHandlers } from "@/components/issues/issue-list-row";
 import { IssuePeekOverlay } from "@/components/issues/issue-peek-overlay";
@@ -24,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { ListLayout } from "@/components/views/list-layout";
 import type { IssueLabelRef, IssueListItem } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
-import type { IssuePriority } from "@/lib/validators/issue";
+import type { IssueFilters, IssuePriority } from "@/lib/validators/issue";
 
 interface IssuesViewProps {
   projectId: string;
@@ -37,7 +38,7 @@ interface IssuesViewProps {
   canDelete: boolean;
   canModerate: boolean;
   currentUserId: string;
-  fetchIssues: () => Promise<IssueListItem[]>;
+  fetchIssues: (filters?: PartialFilters) => Promise<IssueListItem[]>;
 }
 
 type Patch = (issue: IssueListItem) => IssueListItem;
@@ -63,19 +64,28 @@ export function IssuesView({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [peekId, setPeekId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [groupBy, setGroupBy] = useState<IssueFilters["groupBy"]>("state");
+  const [filters, setFilters] = useState<PartialFilters>({} as PartialFilters);
   /** Anchor for Shift-click range selection. */
   const lastClickedId = useRef<string | null>(null);
 
   const { data: issues = initialIssues } = useQuery({
-    queryKey,
-    queryFn: fetchIssues,
+    queryKey: [...queryKey, groupBy, filters],
+    queryFn: () => fetchIssues({ ...filters, groupBy }),
     initialData: initialIssues,
   });
 
   const refresh = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey });
+    void queryClient.invalidateQueries({ queryKey: [...queryKey, groupBy, filters] });
     router.refresh();
-  }, [queryClient, queryKey, router]);
+  }, [queryClient, queryKey, groupBy, filters, router]);
+
+  const handleFilterChange = useCallback(
+    (next: PartialFilters) => {
+      setFilters((prev: PartialFilters) => ({ ...prev, ...next }));
+    },
+    [],
+  );
 
   /**
    * The five-step optimistic contract from docs/03-TRD.md §3.1: cancel any
@@ -284,6 +294,18 @@ export function IssuesView({
 
   return (
     <>
+      <FilterBar
+        states={states}
+        members={members}
+        labels={labels}
+        cycles={cycles}
+        modules={modules}
+        filters={filters}
+        onChange={handleFilterChange}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+      />
+
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-border-subtle px-4">
         <span className="text-xs text-text-300">
           {issues.length} {issues.length === 1 ? "issue" : "issues"}
@@ -317,6 +339,9 @@ export function IssuesView({
         states={states}
         members={members}
         labels={labels}
+        cycles={cycles}
+        modules={modules}
+        groupBy={groupBy}
         selectedIds={selected}
         canDelete={canDelete}
         handlers={handlers}
