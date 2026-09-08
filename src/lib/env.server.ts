@@ -21,7 +21,13 @@ const serverSchema = clientSchema.extend({
    * Also accepted under its newer name, SUPABASE_SECRET_KEY.
    */
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  /** Session pooler (5432). Migrations, the seed and the test runners. */
   DATABASE_URL: z.string().url(),
+  /**
+   * Transaction pooler (6543). What runtime queries should use. Optional so a
+   * developer machine works with one URL, but production wants both.
+   */
+  DATABASE_POOL_URL: z.string().url().optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   SEED_ADMIN_EMAIL: z.string().email().optional(),
 });
@@ -34,6 +40,7 @@ export function serverEnv(): ServerEnv {
     SUPABASE_SERVICE_ROLE_KEY:
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY,
     DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_POOL_URL: process.env.DATABASE_POOL_URL,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     SEED_ADMIN_EMAIL: process.env.SEED_ADMIN_EMAIL,
   });

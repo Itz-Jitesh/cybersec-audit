@@ -3,6 +3,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
+import { Providers } from "@/app/providers";
 import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
@@ -32,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body>
-        {children}
+        <Providers>{children}</Providers>
         {/* Every server action reports its outcome through a toast. */}
         <Toaster position="bottom-right" />
       </body>

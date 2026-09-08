@@ -457,21 +457,105 @@ No human has signed in, so none of this has been driven through the UI. The
 drag-reorder, the debounced identifier check and the typed-confirmation dialogs
 are all built to the spec and typecheck, but they have not been used.
 
-## Phase 8 — Issues core `[ ]`
+## Phase 8 — Issues core  `[~]` awaiting review
 
-- [ ] Issue create modal and per-group inline quick-add
-- [ ] Sequence-ID trigger verified under concurrency (`CTF-1`, `CTF-2`, no gaps)
-- [ ] List layout: grouping, collapsible sticky headers, inline chip editing
-- [ ] Issue detail as peek overlay and full page, with a TipTap description
-- [ ] Sub-issues, relations, links, attachments
-- [ ] Comments with mentions and reactions
-- [ ] Activity feed rendered from `issue_activity`
-- [ ] Archive and delete with confirmation
-- [ ] Multi-select with a bulk actions bar
+- [x] Issue create modal and per-group inline quick-add
+- [x] Sequence-ID trigger verified under real concurrency
+- [x] List layout: grouping, collapsible sticky headers, inline chip editing
+- [x] Issue detail as peek overlay and full page, one implementation
+- [x] Sub-issues, relations, links, attachments
+- [x] Comments with mentions and reactions
+- [x] Activity feed rendered from `issue_activity`
+- [x] Archive and delete
+- [x] Multi-select with a bulk actions bar
+- [ ] Driven through the UI by a human
 
-**DoD:** the full issue lifecycle works end to end and every change lands in the activity feed.
+### The bug this phase found
 
----
+**Deleting an issue that had a label or an assignee failed outright.**
+
+`issue_labels` and `issue_assignees` cascade from `issues`. On a delete Postgres
+removes the issue row first and then fires the referential action that removes
+the join rows, so `log_label_activity` and `log_assignee_activity` ran with the
+parent already gone and tried to insert an `issue_activity` row pointing at it:
+
+```
+insert or update on table "issue_activity" violates foreign key constraint
+"issue_activity_issue_id_issues_id_fk"
+```
+
+That is most issues. It had gone unnoticed because the activity triggers skip
+entirely when `auth.uid()` is null, and every test before this one deleted its
+fixtures as the table owner rather than as a signed-in user — so the whole class
+of bug was invisible to the existing suites. Fixed in
+`0007_activity_cascade_guard.sql`: a row disappearing because its issue was
+deleted is not an unassignment or a label removal, and both functions now return
+early when the parent is gone.
+
+### Also fixed: the wrong connection pooler
+
+`DATABASE_URL` was the **session** pooler on port 5432, which holds one backend
+per client and caps at fifteen. `docs/03-TRD.md` §6 requires the **transaction**
+pooler on 6543 for runtime queries. The concurrency test hit the cap directly —
+six of twenty inserts failed with `max clients reached` — which is what thirty
+people using the app at once would have looked like, except intermittently and
+without anything pointing at the cause.
+
+`src/db/index.ts` now prefers `DATABASE_POOL_URL` and falls back to
+`DATABASE_URL`, warning in production when it has to. **Set
+`DATABASE_POOL_URL` to the transaction pooler URI before real traffic.**
+
+### Notes from this phase
+
+- The list is one query. Assignees, labels and modules are aggregated to JSON
+  inside it and sub-issue counts come from a lateral join, so a hundred issues
+  is one round trip rather than three hundred.
+- `updateIssueOrder` takes the destination state and the two neighbours in a
+  single call, so a cross-group drag is one write and one activity row rather
+  than a state change followed by a reorder.
+- `setParent` walks up the ancestor chain rather than checking only the direct
+  parent. Without that, A→B→A is accepted and every renderer that walks the
+  sub-issue tree hangs.
+- `addRelation` checks write permission on **both** issues. Otherwise a relation
+  is a way to write a row into a project you cannot see.
+- `addAttachment` rejects a storage path that does not begin with
+  `{projectId}/{issueId}/`, so a caller cannot register a row pointing at
+  someone else's object in the bucket.
+- Comments can be deleted by the author or a project manager, but edited only by
+  the author. Putting words in someone's mouth is a different power from
+  removing them.
+- Optimistic updates follow the five-step contract in `docs/03-TRD.md` §3.1.
+  Archiving patches the row **out** of the cache rather than editing a field, so
+  the list never refetches whole just to drop one row.
+- Reactions are a fixed set of seven rather than a full picker. `emoji-mart` is
+  three packages and a search grid; the reactions a tracker actually collects fit
+  on one row. Flagged here since the prompt named the dependency.
+- `@tiptap/pm` was installed alongside the named TipTap packages — it is their
+  required peer, not an extra choice.
+
+### Verified
+
+- **20 concurrent inserts across 10 connections produced exactly 1..20**, no
+  duplicates, no gaps, and the project counter landed on 20. This is the
+  `UPDATE ... RETURNING` in `assign_issue_sequence` doing its job.
+- 14 further checks against the live database, run as a signed-in user so the
+  activity triggers actually fire: the created row, state changes carrying both
+  display names, priority, rename keeping both titles, label and assignee
+  entries, `auto_subscribe`, `completed_at` set and cleared as the state group
+  crosses the completed boundary, archived issues leaving the list, the delete
+  that used to fail, and `is_project_member` returning false for a workspace
+  member who is in no team — the exact check `assertCan` makes.
+- All 17 exported issue actions reach a permission guard, checked by parsing the
+  file rather than by counting occurrences.
+- RLS 36, auth 11, project 9, all green. Typecheck, lint and build clean, no raw
+  hex outside the vendored primitives.
+
+### Not verified
+
+Still nobody signed in. The list, the peek overlay, the editor, drag ordering
+and the bulk bar have never been rendered with real data by a person. Everything
+above is the database and the server actions; the UI is built to spec and
+compiles, and that is a weaker claim.
 
 ## Phase 9 — Views & filtering `[ ]`
 
