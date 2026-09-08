@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, Copy, Loader2 } from "lucide-react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -156,12 +155,17 @@ export function MfaFlow() {
       {isEnrolling && enrolment && (
         <div className="mt-5 flex flex-col gap-3">
           <div className="self-start rounded-lg border border-border-subtle bg-bg-90 p-3">
-            <Image
-              src={enrolment.qrCode}
+            {/* The QR is an SVG data URI from Supabase, not a remotely hosted
+                raster, so next/image adds nothing here and its src validation
+                rejects the data URI's trailing newline outright. A plain img
+                sidesteps the pipeline and renders it as-is; trimEnd is a
+                belt-and-braces guard against that same trailing control char. */}
+            {/* eslint-disable @next/next/no-img-element -- see comment above: next/image cannot render this data URI */}
+            <img
+              src={enrolment.qrCode.trimEnd()}
               alt="Two-factor setup QR code"
               width={160}
               height={160}
-              unoptimized
             />
           </div>
 
