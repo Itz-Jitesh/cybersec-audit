@@ -99,6 +99,15 @@ values ('90000000-0000-4000-8000-000000000030',
         'RLS fixture issue', 1000,
         '90000000-0000-4000-8000-000000000003');
 
+-- A second fixture issue, because the tech lead's delete assertion below
+-- removes the first one and commits, so anything running later needs its own.
+insert into issues (id, project_id, state_id, name, sort_order, created_by)
+values ('90000000-0000-4000-8000-000000000031',
+        '90000000-0000-4000-8000-000000000010',
+        '90000000-0000-4000-8000-000000000020',
+        'RLS mention fixture issue', 1100,
+        '90000000-0000-4000-8000-000000000003');
+
 insert into notifications (id, user_id, actor_id, type, title)
 values ('90000000-0000-4000-8000-000000000040',
         '90000000-0000-4000-8000-000000000001',
@@ -438,6 +447,120 @@ begin
 end $$;
 commit;
 
+-- ---------------------------------------------------------------------------
+-- Regressions fixed in 0005_security_fixes.sql
+-- ---------------------------------------------------------------------------
+
+-- An administrator must not be able to edit their own membership row. Without
+-- this, a co_president passes is_workspace_admin and can promote themselves.
+begin;
+select set_config('role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"90000000-0000-4000-8000-000000000001"}', true);
+do $$
+declare n int;
+begin
+  update workspace_members set role = 'admin'
+  where user_id = '90000000-0000-4000-8000-000000000001';
+  get diagnostics n = row_count;
+  perform pg_temp.rls_record('admin cannot update own membership row',
+    n = 0, 'updated ' || n || ' rows, expected 0');
+end $$;
+commit;
+
+-- An administrator must still be able to change someone else's role, otherwise
+-- the fix above would have broken the admin panel. The target's role is already
+-- 'member', so the write leaves the fixture exactly as it found it.
+begin;
+select set_config('role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"90000000-0000-4000-8000-000000000001"}', true);
+do $$
+declare n int;
+begin
+  update workspace_members set role = 'member'
+  where user_id = '90000000-0000-4000-8000-000000000004';
+  get diagnostics n = row_count;
+  perform pg_temp.rls_record('admin can still update another member role',
+    n = 1, 'updated ' || n || ' rows, expected 1');
+end $$;
+commit;
+
+-- Email is the key the invite system matches on, so it must be immutable even
+-- on your own profile row.
+begin;
+select set_config('role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"90000000-0000-4000-8000-000000000004"}', true);
+do $$
+begin
+  update profiles set email = 'admin@rls-test.invalid'
+  where id = '90000000-0000-4000-8000-000000000004';
+  perform pg_temp.rls_record('member cannot change own profile email',
+    false, 'update was unexpectedly allowed');
+exception when others then
+  perform pg_temp.rls_record('member cannot change own profile email',
+    true, 'denied: ' || sqlerrm);
+end $$;
+commit;
+
+-- A member may still edit the parts of their own profile that are theirs.
+begin;
+select set_config('role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"90000000-0000-4000-8000-000000000004"}', true);
+do $$
+declare n int;
+begin
+  update profiles set bio = 'still editable'
+  where id = '90000000-0000-4000-8000-000000000004';
+  get diagnostics n = row_count;
+  perform pg_temp.rls_record('member can still edit own profile bio',
+    n = 1, 'updated ' || n || ' rows, expected 1');
+end $$;
+commit;
+
+-- fanout_notifications parses recipient ids out of attacker-controlled comment
+-- HTML and inserts as SECURITY DEFINER, so a mention of someone outside the
+-- project used to deliver them the issue title and comment text.
+--
+-- The comment is written as the tech member, but the resulting inbox rows are
+-- counted as the table owner in the block after it. Counting them while still
+-- impersonating the commenter would prove nothing: notifications_select limits
+-- every reader to their own rows, so both counts would come back zero whether
+-- the fix works or not.
+begin;
+select set_config('role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"90000000-0000-4000-8000-000000000004"}', true);
+insert into comments (id, issue_id, author_id, content_html)
+values (
+  '90000000-0000-4000-8000-000000000080',
+  '90000000-0000-4000-8000-000000000031',
+  '90000000-0000-4000-8000-000000000004',
+  '<p>ping <span data-mention-id="90000000-0000-4000-8000-000000000005">design</span>'
+  || ' and <span data-mention-id="90000000-0000-4000-8000-000000000003">lead</span></p>'
+);
+commit;
+
+-- The design member is in another team and must have received nothing; the tech
+-- lead is a member of this project's team and must have received the mention.
+begin;
+select set_config('role', 'postgres', true);
+do $$
+declare outsider int; insider int;
+begin
+  select count(*) into outsider from notifications
+   where user_id = '90000000-0000-4000-8000-000000000005'
+     and issue_id = '90000000-0000-4000-8000-000000000031';
+
+  select count(*) into insider from notifications
+   where user_id = '90000000-0000-4000-8000-000000000003'
+     and issue_id = '90000000-0000-4000-8000-000000000031'
+     and type = 'mention';
+
+  perform pg_temp.rls_record('mention cannot notify a non-project member',
+    outsider = 0, 'design member got ' || outsider || ' notifications, expected 0');
+  perform pg_temp.rls_record('mention still notifies a project member',
+    insider = 1, 'tech lead got ' || insider || ' mention notifications, expected 1');
+end $$;
+commit;
+
 -- The anon block committed while the session was still acting as anon, so
 -- reset to postgres before any further work.
 select set_config('role', 'postgres', true);
@@ -450,7 +573,20 @@ begin;
 
 delete from audit_log where id = '90000000-0000-4000-8000-000000000060';
 delete from issues where name = 'tech member can create issues';
-delete from issue_activity where issue_id = '90000000-0000-4000-8000-000000000030';
+delete from notifications where issue_id in (
+  '90000000-0000-4000-8000-000000000030',
+  '90000000-0000-4000-8000-000000000031'
+);
+delete from comments where issue_id = '90000000-0000-4000-8000-000000000031';
+delete from issue_subscribers where issue_id in (
+  '90000000-0000-4000-8000-000000000030',
+  '90000000-0000-4000-8000-000000000031'
+);
+delete from issue_activity where issue_id in (
+  '90000000-0000-4000-8000-000000000030',
+  '90000000-0000-4000-8000-000000000031'
+);
+delete from issues where id = '90000000-0000-4000-8000-000000000031';
 delete from notifications where id = '90000000-0000-4000-8000-000000000040';
 delete from views where id = '90000000-0000-4000-8000-000000000070';
 delete from projects where identifier in ('RLS', 'RLSD');
