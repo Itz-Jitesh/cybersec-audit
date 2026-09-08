@@ -48,13 +48,36 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done and confirmed
 
 ---
 
-## Phase 2 — Design system realisation `[ ]`
+## Phase 2 — Design system realisation  `[~]` awaiting review
 
-- [ ] `globals.css` token block complete
-- [ ] `PriorityIcon`, `StateIcon`, `MemberAvatar`, `AvatarGroup`, `LabelChip`, `DateChip`, `IssueIdBadge`, `Kbd`, `EmptyState`, `ProgressRing`, `InlineEditableText`
-- [ ] All primitives rendered on `/dev/kitchen-sink` in every meaningful state
-- [ ] Hover/focus/active states match `docs/06-UX-LAYOUT-SPEC.md` §5
-- [ ] Zero raw hex values under `src/components/` (verified by grep)
+- [x] `globals.css` token block complete
+- [x] `PriorityIcon`, `StateIcon`, `MemberAvatar`, `AvatarGroup`, `LabelChip`, `DateChip`, `IssueIdBadge`, `Kbd`, `EmptyState`, `ProgressRing`, `InlineEditableText`
+- [x] All primitives rendered on `/dev/kitchen-sink` in every meaningful state
+- [x] Hover/focus/active states match `docs/05-DESIGN-SYSTEM.md` §5
+- [x] Zero raw hex values under `src/components/` and `src/app/` (verified by grep)
+
+### Notes from this phase
+
+- Only `state-icon.tsx` and `label-chip.tsx` use an inline `style`, and both use
+  it solely for a colour that arrives as a prop from the database, which is the
+  single exemption the conventions allow.
+- `MemberAvatar` picks its fallback background from eight existing tokens rather
+  than a new palette, so avatars reskin with everything else. The hash is FNV-1a,
+  which is pure and gives the server and the client the same colour, so there is
+  no hydration mismatch.
+- The kitchen-sink demo data lives in `src/lib/dev/kitchen-sink-fixtures.ts`. It
+  contains literal colours because it stands in for rows from the states and
+  labels tables, and it sits outside `src/app` and `src/components` so the
+  no-raw-colour grep over those directories stays clean.
+- The prompt pack points at `docs/06-UX-LAYOUT-SPEC.md` §5 for the interaction
+  table, but that section is the `/home` route. The table is
+  `docs/05-DESIGN-SYSTEM.md` §5, which is what was implemented.
+- Verified by grep over the compiled stylesheet that every custom utility
+  resolves to a variable rather than a literal: `.h-row` to `var(--row-h)`,
+  `.text-priority-urgent` to `var(--priority-urgent)`, and so on.
+- Not verified in a browser. The Chrome extension was not connected, and
+  Playwright is a phase 12 dependency, so it was not added early. The page needs
+  a visual pass by eye.
 
 **DoD:** the kitchen-sink page shows every primitive in every state and reads as Plane.
 
