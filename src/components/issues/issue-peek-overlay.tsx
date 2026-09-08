@@ -63,7 +63,7 @@ export function IssuePeekOverlay({
         <DialogTitle className="sr-only">Issue detail</DialogTitle>
 
         {isLoading && (
-          <div className="text-text-300 flex h-full items-center justify-center gap-2 text-sm">
+          <div className="flex h-full items-center justify-center gap-2 text-sm text-text-300">
             <Loader2 size={16} className="animate-spin" />
             Loading…
           </div>
@@ -71,10 +71,10 @@ export function IssuePeekOverlay({
 
         {error && (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-            <p className="text-text-100 text-sm font-medium">
+            <p className="text-sm font-medium text-text-100">
               You do not have access to this issue
             </p>
-            <p className="text-text-300 text-xs">
+            <p className="text-xs text-text-300">
               {error instanceof Error ? error.message : "Access denied."}
             </p>
           </div>
@@ -82,11 +82,11 @@ export function IssuePeekOverlay({
 
         {data && (
           <>
-            <div className="border-border-subtle flex h-9 shrink-0 items-center justify-end border-b px-3">
+            <div className="flex h-9 shrink-0 items-center justify-end border-b border-border-subtle px-3">
               <Link
                 href={`/projects/${data.issue.projectId}/issues/${data.issue.id}`}
                 aria-label="Open in full page"
-                className="text-text-400 hover:bg-bg-80 hover:text-text-100 mr-6 rounded-sm p-1"
+                className="mr-6 rounded-sm p-1 text-text-400 hover:bg-bg-80 hover:text-text-100"
               >
                 <Maximize2 size={14} strokeWidth={1.5} />
               </Link>

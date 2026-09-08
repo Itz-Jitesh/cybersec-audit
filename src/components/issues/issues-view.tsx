@@ -110,7 +110,9 @@ export function IssuesView({
       if (context?.previous) {
         queryClient.setQueryData(queryKey, context.previous);
       }
-      toast.error(error instanceof Error ? error.message : "That did not work.");
+      toast.error(
+        error instanceof Error ? error.message : "That did not work.",
+      );
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey });
@@ -282,11 +284,15 @@ export function IssuesView({
 
   return (
     <>
-      <div className="border-border-subtle flex h-10 shrink-0 items-center justify-between border-b px-4">
-        <span className="text-text-300 text-xs">
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-border-subtle px-4">
+        <span className="text-xs text-text-300">
           {issues.length} {issues.length === 1 ? "issue" : "issues"}
         </span>
-        <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+        <Button
+          size="sm"
+          className="gap-1.5"
+          onClick={() => setCreateOpen(true)}
+        >
           <Plus size={14} strokeWidth={1.5} />
           New issue
         </Button>
@@ -337,7 +343,11 @@ export function IssuesView({
           );
         }}
         onSetPriority={(priority: IssuePriority) =>
-          runBulk({ priority }, (issue) => ({ ...issue, priority }), "Priority updated.")
+          runBulk(
+            { priority },
+            (issue) => ({ ...issue, priority }),
+            "Priority updated.",
+          )
         }
         onAssign={(userId) =>
           runBulk(

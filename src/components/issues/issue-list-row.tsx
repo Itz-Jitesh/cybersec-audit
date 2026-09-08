@@ -25,7 +25,7 @@ import {
   type IssuePriority,
   PriorityIcon,
 } from "@/components/shared/priority-icon";
-import { type StateGroup,StateIcon } from "@/components/shared/state-icon";
+import { type StateGroup, StateIcon } from "@/components/shared/state-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -100,7 +100,7 @@ export function IssueListRow({
         "group flex h-row cursor-pointer items-center gap-2 border-l-2 px-3 transition-colors duration-[120ms] ease-out",
         isSelected
           ? "border-l-brand bg-bg-80"
-          : "hover:bg-bg-90 border-l-transparent",
+          : "border-l-transparent hover:bg-bg-90",
       )}
     >
       <span className="w-3.5 shrink-0">
@@ -123,7 +123,7 @@ export function IssueListRow({
         <button
           type="button"
           aria-label={`Priority: ${issue.priority}`}
-          className="hover:bg-bg-70 shrink-0 rounded-sm p-0.5"
+          className="shrink-0 rounded-sm p-0.5 hover:bg-bg-70"
         >
           <PriorityIcon priority={issue.priority as IssuePriority} size={14} />
         </button>
@@ -139,7 +139,7 @@ export function IssueListRow({
       </span>
 
       {issue.subIssueCount > 0 && (
-        <span className="text-text-400 shrink-0 text-xs">
+        <span className="shrink-0 text-xs text-text-400">
           {issue.completedSubIssueCount}/{issue.subIssueCount}
         </span>
       )}
@@ -158,7 +158,7 @@ export function IssueListRow({
             <LabelChip key={label.id} label={label} />
           ))}
           {issue.labels.length > 2 && (
-            <span className="text-text-400 text-xs">
+            <span className="text-xs text-text-400">
               +{issue.labels.length - 2}
             </span>
           )}
@@ -181,7 +181,7 @@ export function IssueListRow({
         <button
           type="button"
           aria-label="Assignees"
-          className="hover:bg-bg-70 shrink-0 rounded-full p-0.5"
+          className="shrink-0 rounded-full p-0.5 hover:bg-bg-70"
         >
           {issue.assignees.length > 0 ? (
             <AvatarGroup
@@ -194,7 +194,7 @@ export function IssueListRow({
               size={20}
             />
           ) : (
-            <span className="border-border-strong text-text-400 flex size-5 items-center justify-center rounded-full border border-dashed text-2xs">
+            <span className="flex size-5 items-center justify-center rounded-full border border-dashed border-border-strong text-2xs text-text-400">
               +
             </span>
           )}
@@ -209,14 +209,14 @@ export function IssueListRow({
         <button
           type="button"
           aria-label={`State: ${issue.stateName}`}
-          className="border-border-subtle hover:bg-bg-70 flex h-6 shrink-0 items-center gap-1.5 rounded-md border px-1.5"
+          className="flex h-6 shrink-0 items-center gap-1.5 rounded-md border border-border-subtle px-1.5 hover:bg-bg-70"
         >
           <StateIcon
             group={issue.stateGroup as StateGroup}
             color={issue.stateColor}
             size={12}
           />
-          <span className="text-text-200 hidden text-xs sm:inline">
+          <span className="hidden text-xs text-text-200 sm:inline">
             {issue.stateName}
           </span>
         </button>
@@ -230,7 +230,7 @@ export function IssueListRow({
           <button
             type="button"
             aria-label="More actions"
-            className="text-text-400 hover:bg-bg-70 hover:text-text-100 shrink-0 rounded-sm p-1 opacity-0 transition-opacity duration-[120ms] ease-out group-hover:opacity-100 data-[state=open]:opacity-100"
+            className="shrink-0 rounded-sm p-1 text-text-400 opacity-0 transition-opacity duration-[120ms] ease-out group-hover:opacity-100 hover:bg-bg-70 hover:text-text-100 data-[state=open]:opacity-100"
           >
             <MoreHorizontal size={14} strokeWidth={1.5} />
           </button>

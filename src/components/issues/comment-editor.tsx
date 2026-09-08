@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { createComment } from "@/actions/comments";
-import { type EditorValue,RichEditor } from "@/components/editor/rich-editor";
+import { type EditorValue, RichEditor } from "@/components/editor/rich-editor";
 import { Button } from "@/components/ui/button";
 import type { MemberRow } from "@/db/queries/project";
 
@@ -32,7 +32,7 @@ export function CommentEditor({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="border-border-subtle text-text-400 hover:border-border-strong w-full rounded-md border px-3 py-2 text-left text-sm transition-colors duration-[120ms] ease-out"
+        className="w-full rounded-md border border-border-subtle px-3 py-2 text-left text-sm text-text-400 transition-colors duration-[120ms] ease-out hover:border-border-strong"
       >
         Leave a comment…
       </button>
@@ -64,7 +64,7 @@ export function CommentEditor({
   }
 
   return (
-    <div className="border-border-strong rounded-md border p-2">
+    <div className="rounded-md border border-border-strong p-2">
       <RichEditor
         key={editorKey}
         members={members}

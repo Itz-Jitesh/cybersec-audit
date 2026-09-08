@@ -16,6 +16,7 @@ import { db } from "@/db";
 import { commentReactions, comments, issues } from "@/db/schema";
 import { assertCan } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
+import { isEmptyRichText, sanitizeRichText } from "@/lib/utils/sanitize-html";
 
 const createCommentSchema = z.object({
   issueId: z.string().uuid(),
@@ -74,6 +75,11 @@ export async function createComment(
     if (!guard.ok) return denied(guard);
     if (!user) return fail("You must be signed in.", "UNAUTHENTICATED");
 
+    const safeHtml = sanitizeRichText(parsed.data.contentHtml);
+    if (isEmptyRichText(safeHtml)) {
+      return fail("Write something first.", "VALIDATION");
+    }
+
     // The insert fires auto_subscribe and fanout_notifications. Notifications
     // are never written from here; the trigger owns that table.
     const [created] = await db
@@ -81,7 +87,9 @@ export async function createComment(
       .values({
         issueId: parsed.data.issueId,
         authorId: user.id,
-        contentHtml: parsed.data.contentHtml,
+        // Sanitised on the way in, so the stored value is safe for every
+        // reader forever rather than depending on each renderer remembering.
+        contentHtml: safeHtml,
         contentJson: parsed.data.contentJson ?? null,
       })
       .returning({ id: comments.id });
@@ -115,10 +123,15 @@ export async function updateComment(
       return fail("Only the author can edit a comment.", "FORBIDDEN");
     }
 
+    const safeHtml = sanitizeRichText(parsed.data.contentHtml);
+    if (isEmptyRichText(safeHtml)) {
+      return fail("Write something first.", "VALIDATION");
+    }
+
     await db
       .update(comments)
       .set({
-        contentHtml: parsed.data.contentHtml,
+        contentHtml: safeHtml,
         contentJson: parsed.data.contentJson ?? null,
         isEdited: true,
       })
@@ -198,7 +211,9 @@ export async function toggleReaction(
       await db
         .delete(commentReactions)
         .where(eq(commentReactions.id, existing.id));
-      revalidatePath(`/projects/${context.projectId}/issues/${context.issueId}`);
+      revalidatePath(
+        `/projects/${context.projectId}/issues/${context.issueId}`,
+      );
       return ok({ reacted: false });
     }
 

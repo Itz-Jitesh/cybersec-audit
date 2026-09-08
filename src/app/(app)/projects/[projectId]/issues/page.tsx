@@ -32,10 +32,10 @@ export default async function IssuesPage({ params }: IssuesPageProps) {
   if (!readable.ok) {
     return (
       <div className="mx-auto max-w-[720px] px-6 pt-8">
-        <h1 className="text-text-100 text-lg font-medium">
+        <h1 className="text-lg font-medium text-text-100">
           You do not have access to this project
         </h1>
-        <p className="text-text-300 mt-1 text-sm">
+        <p className="mt-1 text-sm text-text-300">
           {project.name} belongs to {project.teamName}. Ask the team lead or a
           workspace admin to add you.
         </p>
@@ -43,22 +43,30 @@ export default async function IssuesPage({ params }: IssuesPageProps) {
     );
   }
 
-  const [issues, states, members, labels, cycles, modules, canDelete, canManage] =
-    await Promise.all([
-      getIssuesForProject({
-        projectId,
-        includeArchived: false,
-        limit: 200,
-        offset: 0,
-      }),
-      getProjectStates(projectId),
-      getProjectMembers(projectId),
-      getLabelOptions(projectId),
-      getProjectCycles(projectId),
-      getProjectModules(projectId),
-      assertCan(user, { kind: "issue.delete", projectId }),
-      assertCan(user, { kind: "project.manage", projectId }),
-    ]);
+  const [
+    issues,
+    states,
+    members,
+    labels,
+    cycles,
+    modules,
+    canDelete,
+    canManage,
+  ] = await Promise.all([
+    getIssuesForProject({
+      projectId,
+      includeArchived: false,
+      limit: 200,
+      offset: 0,
+    }),
+    getProjectStates(projectId),
+    getProjectMembers(projectId),
+    getLabelOptions(projectId),
+    getProjectCycles(projectId),
+    getProjectModules(projectId),
+    assertCan(user, { kind: "issue.delete", projectId }),
+    assertCan(user, { kind: "project.manage", projectId }),
+  ]);
 
   return (
     <div className="flex h-full flex-col">

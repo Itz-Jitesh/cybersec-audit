@@ -33,7 +33,7 @@ import {
   type IssuePriority,
   PriorityIcon,
 } from "@/components/shared/priority-icon";
-import { type StateGroup,StateIcon } from "@/components/shared/state-icon";
+import { type StateGroup, StateIcon } from "@/components/shared/state-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,6 +44,7 @@ import type {
   IssueLabelRef,
 } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
+import { isSafeUrl } from "@/lib/utils/sanitize-html";
 
 export interface IssueDetailBundle {
   issue: IssueDetailData;
@@ -86,7 +87,7 @@ function Property({
 }) {
   return (
     <div className="flex min-h-7 items-center gap-2">
-      <span className="text-text-300 w-20 shrink-0 text-xs">{label}</span>
+      <span className="w-20 shrink-0 text-xs text-text-300">{label}</span>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
@@ -103,7 +104,7 @@ function Section({
 }) {
   return (
     <section className="mt-5">
-      <h3 className="text-text-300 mb-1.5 text-xs font-medium">
+      <h3 className="mb-1.5 text-xs font-medium text-text-300">
         {title}
         {count && <span className="text-text-400"> {count}</span>}
       </h3>
@@ -164,13 +165,13 @@ export function IssueDetail({
             sequenceId={issue.sequenceId}
           />
           {issue.parentName && (
-            <span className="text-text-400 truncate text-xs">
+            <span className="truncate text-xs text-text-400">
               in {issue.parentName}
             </span>
           )}
         </div>
 
-        <h1 className="text-text-100 mt-1.5 text-xl font-semibold">
+        <h1 className="mt-1.5 text-xl font-semibold text-text-100">
           <InlineEditableText
             value={issue.name}
             multiline
@@ -209,12 +210,12 @@ export function IssueDetail({
             title="Sub-issues"
             count={`${completedSubs}/${subIssues.length}`}
           >
-            <ul className="border-border-subtle overflow-hidden rounded-md border">
+            <ul className="overflow-hidden rounded-md border border-border-subtle">
               {subIssues.map((sub) => (
                 <li key={sub.id}>
                   <Link
                     href={`/projects/${sub.projectId}/issues/${sub.id}`}
-                    className="hover:bg-bg-90 border-border-subtle flex h-8 items-center gap-2 border-b px-2.5 last:border-b-0"
+                    className="flex h-8 items-center gap-2 border-b border-border-subtle px-2.5 last:border-b-0 hover:bg-bg-90"
                   >
                     <PriorityIcon
                       priority={sub.priority as IssuePriority}
@@ -229,7 +230,7 @@ export function IssueDetail({
                       identifier={sub.identifier}
                       sequenceId={sub.sequenceId}
                     />
-                    <span className="text-text-200 truncate text-sm">
+                    <span className="truncate text-sm text-text-200">
                       {sub.name}
                     </span>
                   </Link>
@@ -244,20 +245,36 @@ export function IssueDetail({
             <ul className="mb-2 flex flex-col gap-1">
               {links.map((link) => (
                 <li key={link.id} className="flex items-center gap-2">
-                  <Link2 size={14} strokeWidth={1.5} className="text-text-400" />
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="text-brand min-w-0 flex-1 truncate text-xs underline"
-                  >
-                    {link.title || link.url}
-                  </a>
+                  <Link2
+                    size={14}
+                    strokeWidth={1.5}
+                    className="text-text-400"
+                  />
+                  {/*
+                    Rendered as plain text when the scheme is not one a link
+                    should ever use. addLink now rejects those, but rows stored
+                    before it did are still here, and a javascript: href is a
+                    click away from running.
+                  */}
+                  {isSafeUrl(link.url) ? (
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noreferrer noopener nofollow"
+                      className="min-w-0 flex-1 truncate text-xs text-brand underline"
+                    >
+                      {link.title || link.url}
+                    </a>
+                  ) : (
+                    <span className="min-w-0 flex-1 truncate text-xs text-text-400 line-through">
+                      {link.title || link.url}
+                    </span>
+                  )}
                   <button
                     type="button"
                     aria-label="Remove link"
                     onClick={() => run(() => removeLink({ linkId: link.id }))}
-                    className="text-text-400 hover:text-danger rounded-sm p-1"
+                    className="rounded-sm p-1 text-text-400 hover:text-danger"
                   >
                     <Trash2 size={12} strokeWidth={1.5} />
                   </button>
@@ -319,10 +336,12 @@ export function IssueDetail({
               {attachments.map((file) => (
                 <li
                   key={file.id}
-                  className="text-text-300 flex items-center gap-2 text-xs"
+                  className="flex items-center gap-2 text-xs text-text-300"
                 >
                   <Paperclip size={14} strokeWidth={1.5} />
-                  <span className="text-text-200 truncate">{file.fileName}</span>
+                  <span className="truncate text-text-200">
+                    {file.fileName}
+                  </span>
                   <span className="text-text-400">
                     {Math.max(1, Math.round(file.fileSize / 1024))} KB
                   </span>
@@ -343,7 +362,7 @@ export function IssueDetail({
 
             <TabsContent value="comments" className="mt-3">
               {comments.length > 0 && (
-                <ul className="divide-border-subtle divide-y">
+                <ul className="divide-y divide-border-subtle">
                   {comments.map((comment) => (
                     <CommentItem
                       key={comment.id}
@@ -372,7 +391,7 @@ export function IssueDetail({
       </div>
 
       {/* Right sidebar */}
-      <aside className="border-border-subtle w-full shrink-0 overflow-y-auto border-t px-4 py-4 lg:w-detail-panel lg:border-t-0 lg:border-l">
+      <aside className="w-full shrink-0 overflow-y-auto border-t border-border-subtle px-4 py-4 lg:w-detail-panel lg:border-t-0 lg:border-l">
         <Property label="State">
           <StateDropdown
             states={states}
@@ -383,7 +402,7 @@ export function IssueDetail({
           >
             <button
               type="button"
-              className="hover:bg-bg-80 flex h-7 w-full items-center gap-2 rounded-sm px-1.5 text-sm"
+              className="flex h-7 w-full items-center gap-2 rounded-sm px-1.5 text-sm hover:bg-bg-80"
             >
               <StateIcon
                 group={issue.stateGroup as StateGroup}
@@ -404,7 +423,7 @@ export function IssueDetail({
           >
             <button
               type="button"
-              className="hover:bg-bg-80 flex h-7 w-full items-center gap-2 rounded-sm px-1.5 text-sm capitalize"
+              className="flex h-7 w-full items-center gap-2 rounded-sm px-1.5 text-sm capitalize hover:bg-bg-80"
             >
               <PriorityIcon
                 priority={issue.priority as IssuePriority}
@@ -428,7 +447,7 @@ export function IssueDetail({
           >
             <button
               type="button"
-              className="hover:bg-bg-80 flex h-7 w-full items-center gap-2 rounded-sm px-1.5"
+              className="flex h-7 w-full items-center gap-2 rounded-sm px-1.5 hover:bg-bg-80"
             >
               {issue.assignees.length > 0 ? (
                 <AvatarGroup
@@ -441,7 +460,7 @@ export function IssueDetail({
                   size={20}
                 />
               ) : (
-                <span className="text-text-400 text-sm">Unassigned</span>
+                <span className="text-sm text-text-400">Unassigned</span>
               )}
             </button>
           </AssigneeDropdown>
@@ -460,14 +479,14 @@ export function IssueDetail({
           >
             <button
               type="button"
-              className="hover:bg-bg-80 flex min-h-7 w-full flex-wrap items-center gap-1 rounded-sm px-1.5 py-1"
+              className="flex min-h-7 w-full flex-wrap items-center gap-1 rounded-sm px-1.5 py-1 hover:bg-bg-80"
             >
               {issue.labels.length > 0 ? (
                 issue.labels.map((label) => (
                   <LabelChip key={label.id} label={label} />
                 ))
               ) : (
-                <span className="text-text-400 text-sm">None</span>
+                <span className="text-sm text-text-400">None</span>
               )}
             </button>
           </LabelDropdown>
@@ -516,7 +535,9 @@ export function IssueDetail({
                 updateIssue({
                   issueId: issue.id,
                   estimatePoint:
-                    event.target.value === "" ? null : Number(event.target.value),
+                    event.target.value === ""
+                      ? null
+                      : Number(event.target.value),
                 }),
               )
             }
@@ -524,12 +545,12 @@ export function IssueDetail({
           />
         </Property>
 
-        <div className="border-border-subtle mt-4 border-t pt-3">
-          <p className="text-text-400 text-xs">
+        <div className="mt-4 border-t border-border-subtle pt-3">
+          <p className="text-xs text-text-400">
             Created by {issue.createdByName}{" "}
             {formatDistanceToNowStrict(issue.createdAt, { addSuffix: true })}
           </p>
-          <p className="text-text-400 mt-0.5 text-xs">
+          <p className="mt-0.5 text-xs text-text-400">
             Updated{" "}
             {formatDistanceToNowStrict(issue.updatedAt, { addSuffix: true })}
           </p>

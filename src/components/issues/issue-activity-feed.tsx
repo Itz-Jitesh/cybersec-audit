@@ -14,7 +14,11 @@ function describe(entry: ActivityRow): React.ReactNode {
     case "created":
       return <>created this issue</>;
     case "name":
-      return <>renamed it to <Value>{to}</Value></>;
+      return (
+        <>
+          renamed it to <Value>{to}</Value>
+        </>
+      );
     case "description":
       return <>updated the description</>;
     case "state":
@@ -31,43 +35,63 @@ function describe(entry: ActivityRow): React.ReactNode {
       );
     case "assignee":
       return to ? (
-        <>assigned <Value>{to}</Value></>
+        <>
+          assigned <Value>{to}</Value>
+        </>
       ) : (
-        <>unassigned <Value>{from}</Value></>
+        <>
+          unassigned <Value>{from}</Value>
+        </>
       );
     case "label":
       return to ? (
-        <>added the label <Value>{to}</Value></>
+        <>
+          added the label <Value>{to}</Value>
+        </>
       ) : (
-        <>removed the label <Value>{from}</Value></>
+        <>
+          removed the label <Value>{from}</Value>
+        </>
       );
     case "cycle":
       return to ? (
-        <>added it to <Value>{to}</Value></>
+        <>
+          added it to <Value>{to}</Value>
+        </>
       ) : (
-        <>removed it from <Value>{from}</Value></>
+        <>
+          removed it from <Value>{from}</Value>
+        </>
       );
     case "parent":
       return to ? (
-        <>made it a sub-issue of <Value>{to}</Value></>
+        <>
+          made it a sub-issue of <Value>{to}</Value>
+        </>
       ) : (
         <>removed its parent</>
       );
     case "target_date":
       return to ? (
-        <>set the target date to <Value>{to}</Value></>
+        <>
+          set the target date to <Value>{to}</Value>
+        </>
       ) : (
         <>cleared the target date</>
       );
     case "start_date":
       return to ? (
-        <>set the start date to <Value>{to}</Value></>
+        <>
+          set the start date to <Value>{to}</Value>
+        </>
       ) : (
         <>cleared the start date</>
       );
     case "estimate":
       return to ? (
-        <>estimated it at <Value>{to}</Value></>
+        <>
+          estimated it at <Value>{to}</Value>
+        </>
       ) : (
         <>cleared the estimate</>
       );
@@ -90,7 +114,7 @@ const GROUP_WINDOW_MS = 5 * 60 * 1000;
 export function IssueActivityFeed({ entries }: { entries: ActivityRow[] }) {
   if (entries.length === 0) {
     return (
-      <p className="text-text-400 py-4 text-xs">No activity recorded yet.</p>
+      <p className="py-4 text-xs text-text-400">No activity recorded yet.</p>
     );
   }
 
@@ -119,16 +143,18 @@ export function IssueActivityFeed({ entries }: { entries: ActivityRow[] }) {
               )}
             </span>
 
-            <p className="text-text-300 min-w-0 flex-1 truncate text-xs">
+            <p className="min-w-0 flex-1 truncate text-xs text-text-300">
               {!grouped && (
-                <span className="text-text-100 font-medium">
+                <span className="font-medium text-text-100">
                   {entry.actorName}{" "}
                 </span>
               )}
               {describe(entry)}
               <span className="text-text-400">
                 {" · "}
-                {formatDistanceToNowStrict(entry.createdAt, { addSuffix: true })}
+                {formatDistanceToNowStrict(entry.createdAt, {
+                  addSuffix: true,
+                })}
               </span>
             </p>
           </li>

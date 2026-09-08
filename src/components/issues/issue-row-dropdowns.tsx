@@ -8,7 +8,7 @@ import {
   type IssuePriority,
   PriorityIcon,
 } from "@/components/shared/priority-icon";
-import { type StateGroup,StateIcon } from "@/components/shared/state-icon";
+import { type StateGroup, StateIcon } from "@/components/shared/state-icon";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -114,7 +114,10 @@ export function AssigneeDropdown({
       <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
         {children}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="max-h-72 w-56 overflow-y-auto">
+      <DropdownMenuContent
+        align="end"
+        className="max-h-72 w-56 overflow-y-auto"
+      >
         {members.map((member) => (
           <DropdownMenuCheckboxItem
             key={member.userId}
@@ -157,7 +160,10 @@ export function LabelDropdown({
       <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
         {children}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="max-h-72 w-56 overflow-y-auto">
+      <DropdownMenuContent
+        align="end"
+        className="max-h-72 w-56 overflow-y-auto"
+      >
         {labels.map((label) => (
           <DropdownMenuCheckboxItem
             key={label.id}

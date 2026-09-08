@@ -48,13 +48,13 @@ export function BulkActionBar({
     <div
       role="toolbar"
       aria-label={`${count} issues selected`}
-      className="bg-bg-80 border-border-strong fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border px-2 py-1.5 shadow-lg"
+      className="fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-border-strong bg-bg-80 px-2 py-1.5 shadow-lg"
     >
-      <span className="text-text-200 px-2 text-xs font-medium">
+      <span className="px-2 text-xs font-medium text-text-200">
         {count} selected
       </span>
 
-      <span aria-hidden className="bg-border-strong mx-1 h-4 w-px" />
+      <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
 
       <StateDropdown states={states} value="" onSelect={onSetState}>
         <Button size="sm" variant="ghost">
@@ -85,7 +85,7 @@ export function BulkActionBar({
         Archive
       </Button>
 
-      <span aria-hidden className="bg-border-strong mx-1 h-4 w-px" />
+      <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
 
       <Button
         size="sm"

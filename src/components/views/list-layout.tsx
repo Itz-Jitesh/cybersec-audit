@@ -2,7 +2,10 @@
 
 import { ChevronRight } from "lucide-react";
 
-import { IssueListRow, type IssueRowHandlers } from "@/components/issues/issue-list-row";
+import {
+  IssueListRow,
+  type IssueRowHandlers,
+} from "@/components/issues/issue-list-row";
 import { IssueQuickAdd } from "@/components/issues/issue-quick-add";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
 import { StateIcon } from "@/components/shared/state-icon";
@@ -63,7 +66,7 @@ export function ListLayout({
           <section key={state.id}>
             <header
               className={cn(
-                "bg-bg-100 border-border-subtle sticky top-0 z-10 flex h-9 items-center gap-2 border-b px-3",
+                "sticky top-0 z-10 flex h-9 items-center gap-2 border-b border-border-subtle bg-bg-100 px-3",
               )}
             >
               <button
@@ -71,7 +74,7 @@ export function ListLayout({
                 onClick={() => toggleGroup(projectId, state.id)}
                 aria-expanded={!collapsed}
                 aria-label={`${collapsed ? "Expand" : "Collapse"} ${state.name}`}
-                className="text-text-400 hover:text-text-200 shrink-0"
+                className="shrink-0 text-text-400 hover:text-text-200"
               >
                 <ChevronRight
                   size={12}
@@ -85,11 +88,11 @@ export function ListLayout({
 
               <StateIcon group={state.group} color={state.color} size={14} />
 
-              <span className="text-text-100 text-xs font-medium">
+              <span className="text-xs font-medium text-text-100">
                 {state.name}
               </span>
 
-              <span className="bg-bg-80 text-text-300 rounded-full px-1.5 text-2xs font-medium">
+              <span className="rounded-full bg-bg-80 px-1.5 text-2xs font-medium text-text-300">
                 {group.length}
               </span>
 

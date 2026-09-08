@@ -16,7 +16,8 @@
     "db:test:rls": "node --env-file=.env.local src/db/run-rls-tests.ts",
     "db:test:auth": "node --env-file=.env.local src/db/run-auth-tests.ts",
     "db:test": "pnpm db:test:rls && pnpm db:test:auth && pnpm db:test:projects",
-    "db:test:projects": "node --env-file=.env.local src/db/run-project-tests.ts"
+    "db:test:projects": "node --env-file=.env.local src/db/run-project-tests.ts",
+    "test:sanitize": "node --experimental-strip-types src/lib/utils/sanitize-html.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { createIssue } from "@/actions/issues";
-import { type EditorValue,RichEditor } from "@/components/editor/rich-editor";
+import { type EditorValue, RichEditor } from "@/components/editor/rich-editor";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
 import { MemberAvatar } from "@/components/shared/member-avatar";
 import {
@@ -56,7 +56,7 @@ function Chip({
     <button
       type="button"
       {...props}
-      className="border-border-subtle text-text-200 hover:bg-bg-80 flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors duration-[120ms] ease-out"
+      className="flex h-7 items-center gap-1.5 rounded-md border border-border-subtle px-2 text-xs text-text-200 transition-colors duration-[120ms] ease-out hover:bg-bg-80"
     >
       {children}
     </button>
@@ -97,7 +97,9 @@ export function IssueCreateModal({
   const state = states.find((candidate) => candidate.id === stateId);
 
   function toggle(list: string[], id: string): string[] {
-    return list.includes(id) ? list.filter((item) => item !== id) : [...list, id];
+    return list.includes(id)
+      ? list.filter((item) => item !== id)
+      : [...list, id];
   }
 
   async function submit() {
@@ -169,7 +171,11 @@ export function IssueCreateModal({
               <Chip>
                 {state ? (
                   <>
-                    <StateIcon group={state.group} color={state.color} size={12} />
+                    <StateIcon
+                      group={state.group}
+                      color={state.color}
+                      size={12}
+                    />
                     {state.name}
                   </>
                 ) : (
@@ -184,7 +190,11 @@ export function IssueCreateModal({
                   onSelect={() => setStateId(option.id)}
                   className="gap-2"
                 >
-                  <StateIcon group={option.group} color={option.color} size={14} />
+                  <StateIcon
+                    group={option.group}
+                    color={option.color}
+                    size={14}
+                  />
                   {option.name}
                 </DropdownMenuItem>
               ))}
@@ -283,7 +293,8 @@ export function IssueCreateModal({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Chip>
-                  {cycles.find((cycle) => cycle.id === cycleId)?.name ?? "Cycle"}
+                  {cycles.find((cycle) => cycle.id === cycleId)?.name ??
+                    "Cycle"}
                 </Chip>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
@@ -371,7 +382,7 @@ export function IssueCreateModal({
         </div>
 
         <DialogFooter className="items-center sm:justify-between">
-          <label className="text-text-300 flex items-center gap-2 text-xs">
+          <label className="flex items-center gap-2 text-xs text-text-300">
             <Switch checked={createMore} onCheckedChange={setCreateMore} />
             Create more
           </label>

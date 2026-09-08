@@ -25,6 +25,7 @@ import {
 } from "@/db/schema";
 import { assertCan } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
+import { sanitizeRichText } from "@/lib/utils/sanitize-html";
 import {
   addAttachmentSchema,
   addLinkSchema,
@@ -127,7 +128,10 @@ export async function createIssue(
           .orderBy(asc(states.sequence))
           .limit(1);
         if (!first) {
-          return fail("This project has no states to put an issue in.", "CONFLICT");
+          return fail(
+            "This project has no states to put an issue in.",
+            "CONFLICT",
+          );
         }
         stateId = first.id;
       } else {
@@ -140,7 +144,10 @@ export async function createIssue(
       .select({ sortOrder: issues.sortOrder })
       .from(issues)
       .where(
-        and(eq(issues.projectId, parsed.data.projectId), eq(issues.stateId, stateId)),
+        and(
+          eq(issues.projectId, parsed.data.projectId),
+          eq(issues.stateId, stateId),
+        ),
       )
       .orderBy(sql`${issues.sortOrder} desc`)
       .limit(1);
@@ -154,7 +161,9 @@ export async function createIssue(
           // value here is a placeholder the trigger overwrites before insert.
           sequenceId: 0,
           name: parsed.data.name,
-          descriptionHtml: parsed.data.descriptionHtml ?? null,
+          descriptionHtml: parsed.data.descriptionHtml
+            ? sanitizeRichText(parsed.data.descriptionHtml)
+            : null,
           descriptionJson: parsed.data.descriptionJson ?? null,
           stateId,
           priority: parsed.data.priority,
@@ -218,7 +227,7 @@ export async function updateIssue(input: unknown): Promise<ActionResult<null>> {
       .set({
         ...(changes.name !== undefined && { name: changes.name }),
         ...(changes.descriptionHtml !== undefined && {
-          descriptionHtml: changes.descriptionHtml,
+          descriptionHtml: sanitizeRichText(changes.descriptionHtml),
         }),
         ...(changes.descriptionJson !== undefined && {
           descriptionJson: changes.descriptionJson,
@@ -227,7 +236,9 @@ export async function updateIssue(input: unknown): Promise<ActionResult<null>> {
         ...(changes.priority !== undefined && { priority: changes.priority }),
         ...(changes.parentId !== undefined && { parentId: changes.parentId }),
         ...(changes.cycleId !== undefined && { cycleId: changes.cycleId }),
-        ...(changes.startDate !== undefined && { startDate: changes.startDate }),
+        ...(changes.startDate !== undefined && {
+          startDate: changes.startDate,
+        }),
         ...(changes.targetDate !== undefined && {
           targetDate: changes.targetDate,
         }),
@@ -292,7 +303,9 @@ export async function updateIssueOrder(
   });
 }
 
-export async function archiveIssue(input: unknown): Promise<ActionResult<null>> {
+export async function archiveIssue(
+  input: unknown,
+): Promise<ActionResult<null>> {
   return guarded("archiveIssue", async () => {
     const parsed = issueIdSchema.safeParse(input);
     if (!parsed.success) return invalid(parsed.error);
@@ -347,7 +360,9 @@ export async function deleteIssue(input: unknown): Promise<ActionResult<null>> {
   });
 }
 
-export async function setAssignees(input: unknown): Promise<ActionResult<null>> {
+export async function setAssignees(
+  input: unknown,
+): Promise<ActionResult<null>> {
   return guarded("setAssignees", async () => {
     const parsed = setAssigneesSchema.safeParse(input);
     if (!parsed.success) return invalid(parsed.error);
@@ -538,10 +553,7 @@ export async function addRelation(input: unknown): Promise<ActionResult<null>> {
           issueId: parsed.data.relatedIssueId,
           relatedIssueId: parsed.data.issueId,
           relationType: INVERSE[parsed.data.relationType] as
-            | "blocks"
-            | "blocked_by"
-            | "relates_to"
-            | "duplicate_of",
+            "blocks" | "blocked_by" | "relates_to" | "duplicate_of",
           createdBy: guard.userId ?? parsed.data.issueId,
         })
         .onConflictDoNothing();
@@ -582,10 +594,7 @@ export async function removeRelation(
             eq(
               issueRelations.relationType,
               INVERSE[parsed.data.relationType] as
-                | "blocks"
-                | "blocked_by"
-                | "relates_to"
-                | "duplicate_of",
+                "blocks" | "blocked_by" | "relates_to" | "duplicate_of",
             ),
           ),
         );

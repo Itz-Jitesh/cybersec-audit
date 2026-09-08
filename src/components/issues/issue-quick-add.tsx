@@ -53,7 +53,7 @@ export function IssueQuickAdd({
           setOpen(true);
           requestAnimationFrame(() => inputRef.current?.focus());
         }}
-        className="text-text-400 hover:bg-bg-90 hover:text-text-200 flex h-row w-full items-center gap-2 px-3 text-sm transition-colors duration-[120ms] ease-out"
+        className="flex h-row w-full items-center gap-2 px-3 text-sm text-text-400 transition-colors duration-[120ms] ease-out hover:bg-bg-90 hover:text-text-200"
       >
         <Plus size={14} strokeWidth={1.5} />
         New issue
@@ -63,7 +63,7 @@ export function IssueQuickAdd({
 
   return (
     <div className={cn("flex h-row items-center gap-2 px-3")}>
-      <Plus size={14} strokeWidth={1.5} className="text-text-400 shrink-0" />
+      <Plus size={14} strokeWidth={1.5} className="shrink-0 text-text-400" />
       <input
         ref={inputRef}
         value={value}
@@ -82,7 +82,7 @@ export function IssueQuickAdd({
         onBlur={() => {
           if (value.trim().length === 0) setOpen(false);
         }}
-        className="text-text-100 placeholder:text-text-400 flex-1 bg-transparent text-sm outline-none"
+        className="flex-1 bg-transparent text-sm text-text-100 outline-none placeholder:text-text-400"
       />
     </div>
   );

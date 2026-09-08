@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/popover";
 import type { CommentRow } from "@/db/queries/issues";
 import { cn } from "@/lib/utils";
+import { sanitizeRichText } from "@/lib/utils/sanitize-html";
 
 /**
  * A fixed set rather than a full emoji picker. These are the reactions a
@@ -67,10 +68,10 @@ export function CommentItem({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-text-100 text-sm font-medium">
+          <span className="text-sm font-medium text-text-100">
             {comment.authorName}
           </span>
-          <span className="text-text-400 text-xs">
+          <span className="text-xs text-text-400">
             {formatDistanceToNowStrict(comment.createdAt, { addSuffix: true })}
             {comment.isEdited && " · edited"}
           </span>
@@ -83,7 +84,7 @@ export function CommentItem({
                 <button
                   type="button"
                   aria-label="Comment actions"
-                  className="text-text-400 hover:bg-bg-70 hover:text-text-100 rounded-sm p-1"
+                  className="rounded-sm p-1 text-text-400 hover:bg-bg-70 hover:text-text-100"
                 >
                   <MoreHorizontal size={14} strokeWidth={1.5} />
                 </button>
@@ -110,10 +111,13 @@ export function CommentItem({
         </div>
 
         <div
-          className="text-text-200 mt-1 text-sm [&_.mention]:text-brand [&_a]:text-brand [&_a]:underline [&_p]:my-1"
-          // The HTML is produced by TipTap from a schema that has no script
-          // node, and it is written only by project members.
-          dangerouslySetInnerHTML={{ __html: comment.contentHtml }}
+          className="mt-1 text-sm text-text-200 [&_.mention]:text-brand [&_a]:text-brand [&_a]:underline [&_p]:my-1"
+          // Sanitised again here even though createComment already sanitised on
+          // write. Rows stored before that existed are still in the database,
+          // and a second pass on a string that is already clean costs nothing.
+          dangerouslySetInnerHTML={{
+            __html: sanitizeRichText(comment.contentHtml),
+          }}
         />
 
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -143,7 +147,7 @@ export function CommentItem({
               <button
                 type="button"
                 aria-label="Add reaction"
-                className="text-text-400 hover:bg-bg-80 hover:text-text-200 rounded-full p-1"
+                className="rounded-full p-1 text-text-400 hover:bg-bg-80 hover:text-text-200"
               >
                 <SmilePlus size={14} strokeWidth={1.5} />
               </button>
@@ -154,7 +158,7 @@ export function CommentItem({
                   key={emoji}
                   type="button"
                   onClick={() => react(emoji)}
-                  className="hover:bg-bg-70 rounded-sm p-1 text-base"
+                  className="rounded-sm p-1 text-base hover:bg-bg-70"
                   aria-label={`React with ${emoji}`}
                 >
                   {emoji}

@@ -23,13 +23,7 @@ const titleSchema = z
   .max(500, "Titles are limited to 500 characters.");
 
 /** Fibonacci-ish, 0 to 21, matching the check constraint on estimate_point. */
-const estimateSchema = z
-  .number()
-  .int()
-  .min(0)
-  .max(21)
-  .nullable()
-  .optional();
+const estimateSchema = z.number().int().min(0).max(21).nullable().optional();
 
 const dateSchema = z
   .string()
@@ -105,9 +99,23 @@ export const relationSchema = z.object({
   relationType: relationTypeSchema,
 });
 
+/**
+ * z.url() accepts javascript: and data:, both of which execute when the stored
+ * value is later rendered as an href. Only the two schemes a link on an issue
+ * should ever use are allowed.
+ */
+export const linkUrlSchema = z
+  .string()
+  .trim()
+  .url("That does not look like a link.")
+  .refine(
+    (value) => /^https?:\/\//i.test(value),
+    "Links must start with http:// or https://.",
+  );
+
 export const addLinkSchema = z.object({
   issueId: z.string().uuid(),
-  url: z.string().url("That does not look like a link."),
+  url: linkUrlSchema,
   title: z.string().trim().max(200).optional().or(z.literal("")),
 });
 
