@@ -1,26 +1,280 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Design tokens — docs/05-DESIGN-SYSTEM.md §1.
+   This block is the entire reskin surface. Changing the palette later means
+   editing the values here and nothing else. Components never see a hex value.
+--------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* surfaces — 100 is deepest, ascending = lighter/raised */
+  --bg-100: #191b1b;
+  --bg-90: #1f2121;
+  --bg-80: #242626;
+  --bg-70: #2e3030;
+  --bg-60: #383a3a;
+
+  /* text */
+  --text-100: #e6e6e6;
+  --text-200: #b9bbbb;
+  --text-300: #878888;
+  --text-400: #5c5e5e;
+
+  /* borders */
+  --border-subtle: #2e3030;
+  --border-strong: #3f4141;
+  --border-focus: #3f76ff;
+
+  /* accent */
+  --accent: #3f76ff;
+  --accent-hover: #3568e5;
+  --accent-subtle: #3f76ff1a;
+  --on-accent: #ffffff;
+
+  /* semantic */
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+
+  /* priority */
+  --priority-urgent: #ef4444;
+  --priority-high: #f97316;
+  --priority-medium: #eab308;
+  --priority-low: #3b82f6;
+  --priority-none: #6b7280;
+
+  /* state groups */
+  --state-backlog: #6b7280;
+  --state-unstarted: #9ca3af;
+  --state-started: #f59e0b;
+  --state-completed: #16a34a;
+  --state-cancelled: #ef4444;
+
+  /* radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+
+  /* elevation */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.45);
+
+  /* layout */
+  --sidebar-w: 250px;
+  --sidebar-w-collapsed: 60px;
+  --header-h: 48px;
+  --detail-panel-w: 348px;
+  --row-h: 38px;
+}
+
+/* ---------------------------------------------------------------------------
+   Tailwind v4 theme — maps the tokens above onto utility classes so that
+   bg-bg-90, text-text-200, border-border-subtle and rounded-md all resolve
+   back to the variables rather than to literal colours.
+--------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-bg-100: var(--bg-100);
+  --color-bg-90: var(--bg-90);
+  --color-bg-80: var(--bg-80);
+  --color-bg-70: var(--bg-70);
+  --color-bg-60: var(--bg-60);
+
+  --color-text-100: var(--text-100);
+  --color-text-200: var(--text-200);
+  --color-text-300: var(--text-300);
+  --color-text-400: var(--text-400);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-border-focus: var(--border-focus);
+
+  /* The brand blue. Named "brand" rather than "accent" at the utility layer
+     because shadcn/ui reserves bg-accent for its raised hover surface, which
+     in this design is --bg-70, not the blue. The CSS variable stays --accent
+     so the token block matches docs/05-DESIGN-SYSTEM.md exactly. */
+  --color-brand: var(--accent);
+  --color-brand-hover: var(--accent-hover);
+  --color-brand-subtle: var(--accent-subtle);
+  --color-on-brand: var(--on-accent);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  --color-priority-urgent: var(--priority-urgent);
+  --color-priority-high: var(--priority-high);
+  --color-priority-medium: var(--priority-medium);
+  --color-priority-low: var(--priority-low);
+  --color-priority-none: var(--priority-none);
+
+  --color-state-backlog: var(--state-backlog);
+  --color-state-unstarted: var(--state-unstarted);
+  --color-state-started: var(--state-started);
+  --color-state-completed: var(--state-completed);
+  --color-state-cancelled: var(--state-cancelled);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-full: var(--radius-full);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* type scale — docs/05-DESIGN-SYSTEM.md §2. The app is 13px body, not 16px. */
+  --text-2xs: 10px;
+  --text-2xs--line-height: 14px;
+  --text-xs: 11px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 20px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-lg: 16px;
+  --text-lg--line-height: 24px;
+  --text-lg--letter-spacing: -0.01em;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-xl--letter-spacing: -0.01em;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+  --text-2xl--letter-spacing: -0.01em;
+
+  /* layout dimensions, so w-sidebar and h-header exist as utilities */
+  --spacing-sidebar: var(--sidebar-w);
+  --spacing-sidebar-collapsed: var(--sidebar-w-collapsed);
+  --spacing-header: var(--header-h);
+  --spacing-detail-panel: var(--detail-panel-w);
+  --spacing-row: var(--row-h);
+}
+
+/* ---------------------------------------------------------------------------
+   shadcn/ui semantic layer. The primitives in src/components/ui reference
+   these names; every one of them resolves back to a token above, so the
+   shadcn components reskin along with everything else and no primitive
+   carries a colour of its own.
+--------------------------------------------------------------------------- */
+
+:root {
+  --radius: var(--radius-md);
+
+  --background: var(--bg-100);
+  --foreground: var(--text-100);
+  --card: var(--bg-90);
+  --card-foreground: var(--text-100);
+  --popover: var(--bg-80);
+  --popover-foreground: var(--text-100);
+  --primary: var(--accent);
+  --primary-foreground: var(--on-accent);
+  --secondary: var(--bg-80);
+  --secondary-foreground: var(--text-100);
+  --muted: var(--bg-80);
+  --muted-foreground: var(--text-300);
+  --accent-foreground: var(--text-100);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--on-accent);
+  --border: var(--border-subtle);
+  --input: var(--border-strong);
+  --ring: var(--border-focus);
+
+  --chart-1: var(--accent);
+  --chart-2: var(--success);
+  --chart-3: var(--warning);
+  --chart-4: var(--danger);
+  --chart-5: var(--info);
+
+  --sidebar: var(--bg-90);
+  --sidebar-foreground: var(--text-200);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--on-accent);
+  --sidebar-accent: var(--bg-80);
+  --sidebar-accent-foreground: var(--text-100);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--border-focus);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--bg-70);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--bg-100);
+    color: var(--text-100);
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Density comes from weight restraint. Nothing in this app goes above 600. */
+  strong,
+  b {
+    font-weight: 600;
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--accent-subtle);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+    transform: none !important;
+  }
 }
