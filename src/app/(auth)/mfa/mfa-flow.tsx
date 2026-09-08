@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { OtpInput } from "@/app/(auth)/mfa/otp-input";
 import { Button } from "@/components/ui/button";
+import { generateQrDataUrl } from "@/lib/qr";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "loading" | "enrol" | "challenge";
@@ -14,20 +15,6 @@ interface Enrolment {
   factorId: string;
   qrCode: string;
   secret: string;
-}
-
-/**
- * Supabase's GoTrue client builds the QR data URI by naively prepending
- * "data:image/svg+xml;utf-8," to the raw SVG the server returns. That SVG
- * contains un-encoded "#" colour values (e.g. fill="#000000"), and "#" is a
- * fragment delimiter in a data URI — so the browser silently truncates the
- * source at the first "#" and renders nothing scannable. Re-encoding the SVG
- * body with encodeURIComponent resolves it.
- */
-function encodeQrDataUri(raw: string): string {
-  const prefix = "data:image/svg+xml;utf-8,";
-  if (!raw.startsWith(prefix)) return raw;
-  return prefix + encodeURIComponent(raw.slice(prefix.length));
 }
 
 /**
@@ -89,9 +76,14 @@ export function MfaFlow() {
         return;
       }
 
+      // Generate the QR code ourselves from the canonical otpauth:// URI.
+      // Supabase's bundled SVG data URI renders unscannable in browsers (it
+      // contains un-encoded "#" colour values that the data-URI parser treats
+      // as a fragment delimiter), so we produce a clean PNG from the URI.
+      const qrCode = await generateQrDataUrl(enrolled.totp.uri);
       setEnrolment({
         factorId: enrolled.id,
-        qrCode: enrolled.totp.qr_code,
+        qrCode,
         secret: enrolled.totp.secret,
       });
       setFactorId(enrolled.id);
@@ -169,14 +161,13 @@ export function MfaFlow() {
       {isEnrolling && enrolment && (
         <div className="mt-5 flex flex-col gap-3">
           <div className="self-start rounded-lg border border-border-subtle bg-bg-90 p-3">
-            {/* The QR is an SVG data URI from Supabase, not a remotely hosted
-                raster, so next/image adds nothing here and its src validation
-                rejects the data URI's trailing newline outright. A plain img
-                sidesteps the pipeline and renders it as-is; trimEnd is a
-                belt-and-braces guard against that same trailing control char. */}
+            {/* The QR is generated client-side as a PNG data URL from the
+                canonical otpauth:// URI. A plain img is used because this is
+                a data URI, not a remotely hosted image, so next/image adds
+                nothing and its src validation would reject the data URI. */}
             {/* eslint-disable @next/next/no-img-element -- see comment above: next/image cannot render this data URI */}
             <img
-              src={encodeQrDataUri(enrolment.qrCode.trimEnd())}
+              src={enrolment.qrCode}
               alt="Two-factor setup QR code"
               width={160}
               height={160}
