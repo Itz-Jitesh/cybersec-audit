@@ -162,14 +162,39 @@ because each is a change the user should either confirm or overrule.
 
 ---
 
-## Phase 4 — RLS & authorization `[ ]`
+## Phase 4 — RLS & authorization  `[~]` applied, awaiting review
 
-**Blocked on:** Phase 3.
+- [x] Helper functions: `is_active_member`, `is_workspace_admin`, `is_team_lead`, `is_project_member`, `can_manage_project`
+- [x] RLS enabled with policies on every table per `docs/04-DATA-MODEL.md` §9 — 28 tables, 99 policies
+- [x] `src/lib/auth/permissions.ts` with `assertCan()` mirroring the policy matrix
+- [x] `supabase/tests/rls.sql` passing every negative assertion — 30/30 PASS
 
-- [ ] Helper functions: `is_active_member`, `is_workspace_admin`, `is_team_lead`, `is_project_member`, `can_manage_project`
-- [ ] RLS enabled with policies on every table per `docs/04-DATA-MODEL.md` §9
-- [ ] `src/lib/auth/permissions.ts` with `assertCan()` mirroring the policy matrix
-- [ ] `supabase/tests/rls.sql` passing every negative assertion
+### Notes from this phase
+
+- `supabase/migrations/0004_rls.sql` is idempotent and was applied through
+  `src/db/apply-sql.ts`. First apply surfaced a real grammar bug: DROP POLICY
+  is a standalone statement, not an ALTER TABLE subcommand, so every
+  `alter table X drop policy if exists …` had to become `drop policy if
+  exists …`. 0004 was written and fixed in the same session, before it ever
+  applied — no applied migration was touched.
+- RLS is enabled but not forced: the table owner (the `postgres` role Drizzle
+  connects as) bypasses policies, so `assertCan()` enforces the same matrix on
+  the server path. Anon has no policies at all; everything is `authenticated`.
+- Three extra definer resolvers back the child-table policies:
+  `issue_project_id`, `comment_issue_id`, `cycle_project_id` — they keep
+  parent-project lookups out of the policy recursion game.
+- `pnpm db:test:rls` needs psql, which is not installed here, so
+  `src/db/run-rls-tests.ts` runs the identical SQL file through the postgres
+  driver. `supabase/tests/rls.sql` stays psql-compatible.
+- The suite commits each assertion block (temp-table results are
+  transactional, so rollback would erase the verdicts) and then removes only
+  its own deterministic fixtures; two runs in a row are a no-op the second
+  time. The anon block resets the session role afterwards.
+- Two learnings the suite encodes: DELETE/UPDATE denials are silent row
+  filters, asserted by row count, while INSERT denials raise and are asserted
+  by exception; and `audit_log` visibility follows `is_workspace_admin`, so
+  president and co_president read the log — admin-class, per the doc's own
+  helper vocabulary and PRD §2.
 
 **DoD:** the RLS suite runs green and the cross-team read test fails to read, as expected.
 
