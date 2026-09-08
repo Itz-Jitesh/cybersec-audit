@@ -3,7 +3,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-import { serverEnv } from "@/lib/env";
+import { serverEnv } from "@/lib/env.server";
 
 /**
  * Server Supabase client bound to the request's cookie jar. Uses the anon key

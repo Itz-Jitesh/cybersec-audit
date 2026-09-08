@@ -44,7 +44,10 @@ export async function isActiveMember(userId: string): Promise<boolean> {
     .select({ userId: workspaceMembers.userId })
     .from(workspaceMembers)
     .where(
-      and(eq(workspaceMembers.userId, userId), eq(workspaceMembers.isActive, true)),
+      and(
+        eq(workspaceMembers.userId, userId),
+        eq(workspaceMembers.isActive, true),
+      ),
     )
     .limit(1);
   return rows.length > 0;
@@ -71,7 +74,10 @@ export async function isWorkspaceAdmin(userId: string): Promise<boolean> {
 }
 
 /** Workspace admin, or lead of this specific team. */
-export async function isTeamLead(userId: string, teamId: string): Promise<boolean> {
+export async function isTeamLead(
+  userId: string,
+  teamId: string,
+): Promise<boolean> {
   if (await isWorkspaceAdmin(userId)) {
     return true;
   }
@@ -109,7 +115,10 @@ export async function isProjectMember(
     )
     .leftJoin(
       teamMembers,
-      and(eq(teamMembers.teamId, projects.teamId), eq(teamMembers.userId, userId)),
+      and(
+        eq(teamMembers.teamId, projects.teamId),
+        eq(teamMembers.userId, userId),
+      ),
     )
     .where(
       and(
@@ -230,15 +239,13 @@ export async function assertCan(
       break;
     case "project.read":
     case "issue.write":
-      allowed =
-        scope !== null && (await isProjectMember(user.id, scope));
+      allowed = scope !== null && (await isProjectMember(user.id, scope));
       break;
     case "project.manage":
     case "issue.delete":
     case "cycle.manage":
     case "module.manage":
-      allowed =
-        scope !== null && (await canManageProject(user.id, scope));
+      allowed = scope !== null && (await canManageProject(user.id, scope));
       break;
   }
 
@@ -261,7 +268,11 @@ export async function canWriteIssue(
   issueId: string,
 ): Promise<AbilityResult> {
   if (user === null) {
-    return { ok: false, error: "You must be signed in.", code: "UNAUTHENTICATED" };
+    return {
+      ok: false,
+      error: "You must be signed in.",
+      code: "UNAUTHENTICATED",
+    };
   }
   const rows = await db
     .select({ projectId: issues.projectId })
@@ -287,7 +298,9 @@ export async function projectOfCycle(cycleId: string): Promise<string | null> {
   return rows.length > 0 ? rows[0].projectId : null;
 }
 
-export async function projectOfModule(moduleId: string): Promise<string | null> {
+export async function projectOfModule(
+  moduleId: string,
+): Promise<string | null> {
   const rows = await db
     .select({ projectId: modules.projectId })
     .from(modules)

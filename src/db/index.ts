@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import * as schema from "@/db/schema";
-import { serverEnv } from "@/lib/env";
+import { serverEnv } from "@/lib/env.server";
 
 /**
  * Drizzle client for Server Components and Server Actions.

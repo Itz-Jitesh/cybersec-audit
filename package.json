@@ -13,7 +13,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:seed": "node --env-file=.env.local src/db/seed.ts",
-    "db:test:rls": "psql \"$DATABASE_URL\" -f supabase/tests/rls.sql"
+    "db:test:rls": "node --env-file=.env.local src/db/run-rls-tests.ts",
+    "db:test:auth": "node --env-file=.env.local src/db/run-auth-tests.ts",
+    "db:test": "pnpm db:test:rls && pnpm db:test:auth"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

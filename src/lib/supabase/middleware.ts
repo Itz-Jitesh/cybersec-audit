@@ -1,12 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
-import { serverEnv } from "@/lib/env";
+import { serverEnv } from "@/lib/env.server";
 
 /**
- * Refreshes the Supabase session cookie on every request and returns both the
- * response carrying the refreshed cookies and the current user. Route
- * protection itself lives in src/middleware.ts, which is added in phase 5.
+ * Refreshes the Supabase session cookie on every request and returns the
+ * response carrying the refreshed cookies, the current user, and the client
+ * itself, so src/middleware.ts can run its membership lookup on the same
+ * session rather than opening a second one.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -37,5 +38,5 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return { response, user };
+  return { response, user, supabase };
 }

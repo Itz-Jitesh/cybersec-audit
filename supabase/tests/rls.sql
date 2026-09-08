@@ -51,29 +51,32 @@ delete from team_members where user_id in (
   select id from profiles where email like '%@rls-test.invalid'
 );
 delete from projects where identifier in ('RLS', 'RLSD');
+delete from invites where email::text like '%@rls-test.invalid';
 delete from profiles where email like '%@rls-test.invalid';
 delete from auth.users where email like '%@rls-test.invalid';
 
-insert into auth.users (id, email, encrypted_password) values
-  ('90000000-0000-4000-8000-000000000001', 'admin@rls-test.invalid', ''),
-  ('90000000-0000-4000-8000-000000000002', 'president@rls-test.invalid', ''),
-  ('90000000-0000-4000-8000-000000000003', 'tech-lead@rls-test.invalid', ''),
-  ('90000000-0000-4000-8000-000000000004', 'tech-member@rls-test.invalid', ''),
-  ('90000000-0000-4000-8000-000000000005', 'design-member@rls-test.invalid', '');
+-- Since 0006_handle_new_user.sql, an auth.users insert without a matching open
+-- invite is aborted by the gate. Rather than switching the trigger off for the
+-- fixture, the five users are provisioned the way real members are: an invite
+-- is opened for each, and the trigger creates the profile and the membership.
+-- That keeps the suite honest — if the gate or the provisioning breaks, this
+-- fails here rather than passing against fixtures the application could never
+-- have produced.
+delete from invites where email::text like '%@rls-test.invalid';
 
-insert into profiles (id, email, display_name) values
-  ('90000000-0000-4000-8000-000000000001', 'admin@rls-test.invalid', 'RLS Admin'),
-  ('90000000-0000-4000-8000-000000000002', 'president@rls-test.invalid', 'RLS President'),
-  ('90000000-0000-4000-8000-000000000003', 'tech-lead@rls-test.invalid', 'RLS Tech Lead'),
-  ('90000000-0000-4000-8000-000000000004', 'tech-member@rls-test.invalid', 'RLS Tech Member'),
-  ('90000000-0000-4000-8000-000000000005', 'design-member@rls-test.invalid', 'RLS Design Member');
+insert into invites (email, role, expires_at) values
+  ('admin@rls-test.invalid', 'admin', now() + interval '1 day'),
+  ('president@rls-test.invalid', 'president', now() + interval '1 day'),
+  ('tech-lead@rls-test.invalid', 'member', now() + interval '1 day'),
+  ('tech-member@rls-test.invalid', 'member', now() + interval '1 day'),
+  ('design-member@rls-test.invalid', 'member', now() + interval '1 day');
 
-insert into workspace_members (user_id, role) values
-  ('90000000-0000-4000-8000-000000000001', 'admin'),
-  ('90000000-0000-4000-8000-000000000002', 'president'),
-  ('90000000-0000-4000-8000-000000000003', 'member'),
-  ('90000000-0000-4000-8000-000000000004', 'member'),
-  ('90000000-0000-4000-8000-000000000005', 'member');
+insert into auth.users (id, email, encrypted_password, raw_user_meta_data) values
+  ('90000000-0000-4000-8000-000000000001', 'admin@rls-test.invalid', '', '{"full_name":"RLS Admin"}'::jsonb),
+  ('90000000-0000-4000-8000-000000000002', 'president@rls-test.invalid', '', '{"full_name":"RLS President"}'::jsonb),
+  ('90000000-0000-4000-8000-000000000003', 'tech-lead@rls-test.invalid', '', '{"full_name":"RLS Tech Lead"}'::jsonb),
+  ('90000000-0000-4000-8000-000000000004', 'tech-member@rls-test.invalid', '', '{"full_name":"RLS Tech Member"}'::jsonb),
+  ('90000000-0000-4000-8000-000000000005', 'design-member@rls-test.invalid', '', '{"full_name":"RLS Design Member"}'::jsonb);
 
 insert into team_members (team_id, user_id, role)
 select id, '90000000-0000-4000-8000-000000000003', 'lead' from teams where slug = 'tech';
@@ -598,6 +601,7 @@ delete from workspace_members where user_id in (
 );
 delete from profiles where email like '%@rls-test.invalid';
 delete from auth.users where email like '%@rls-test.invalid';
+delete from invites where email::text like '%@rls-test.invalid';
 
 commit;
 

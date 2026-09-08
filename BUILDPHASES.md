@@ -210,21 +210,82 @@ All three were live in the applied database before this migration.
   not installed on this machine. It is repeatable: run three times in a row, it
   reports 36 passes each time and leaves no fixture rows behind.
 
-## Phase 5 — Authentication `[ ]`
+## Phase 5 — Authentication  `[~]` code complete, awaiting dashboard setup
 
-**Blocked on:** Google + GitHub OAuth credentials.
+- [x] `/sign-in` with Google and GitHub OAuth
+- [x] `/auth/callback` route handler
+- [x] `handle_new_user` trigger enforcing invite-gating, applied and asserted
+- [x] `middleware.ts`: session refresh, route protection, inactive-member rejection, MFA gate
+- [x] `/invite/[token]` page with distinct expired and already-used states
+- [x] TOTP enrolment and challenge at `/mfa`, enforced for privileged roles
+- [x] Rejection UX for uninvited emails
+- [x] `src/lib/auth/session.ts`, which phase 4 had left unwritten
+- [x] `supabase/tests/auth.sql` — 11 assertions on the invite gate
+- [ ] Google and GitHub providers enabled in the Supabase dashboard
+- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` set to the project's real publishable key
+- [ ] End-to-end sign-in performed by a human
 
-- [ ] `/sign-in` with Google and GitHub OAuth
-- [ ] `/auth/callback` route handler
-- [ ] `handle_new_user` trigger enforcing invite-gating
-- [ ] `middleware.ts`: session refresh, route protection, inactive-member rejection, MFA gate
-- [ ] `/invite/[token]` page
-- [ ] TOTP enrolment and challenge at `/mfa`, enforced for privileged roles
-- [ ] Rejection UX for uninvited emails
+### Where the invite gate lives, and why
 
-**DoD:** an uninvited account is rejected clearly; an invited one lands on `/home`; an admin without MFA is forced to enrol.
+In the `handle_new_user` trigger, not in the callback route. Supabase creates the
+`auth.users` row the moment a provider returns a verified identity, before any
+application code runs, so a check in the route handler would leave a real
+account behind for anyone who completed a Google consent screen. Raising inside
+the trigger aborts that insert in the same transaction. The auth suite asserts
+this directly: after a rejected attempt there is no profile **and no auth user**.
 
----
+The callback matches on the string `NO_INVITE` to show the rejection screen
+rather than a generic failure, because someone turned away here has usually just
+been told by a friend that they have access.
+
+### Notes from this phase
+
+- Membership and the second-factor requirement are evaluated only in middleware.
+  The callback redirects to `/home` and lets middleware decide, so the rule has
+  one implementation rather than two that can drift.
+- `getSession()` uses `supabase.auth.getUser()`, not `getSession()` from the SDK.
+  The latter reads the cookie without verifying it, so a forged or stale cookie
+  would be believed.
+- `src/lib/env.ts` was split, with the server half moved to `env.server.ts` and
+  marked `server-only`. The combined module was imported by client components,
+  which put the *names* of the secret variables into the browser bundle. No
+  value ever leaked — verified by grepping `.next/static` — but the names are
+  gone now too.
+- `SUPABASE_SERVICE_ROLE_KEY` became optional at boot and is read through
+  `requireServiceRoleKey()`. Nothing in the request path uses it, and requiring
+  it broke every build on a machine with no reason to hold it.
+- The RLS suite's five test users are now provisioned through the invite gate
+  rather than inserted directly, since the gate would otherwise reject them.
+  This is a better fixture: if provisioning breaks, the suite fails instead of
+  passing against rows the application could never have produced.
+- `pnpm db:test:rls` no longer shells out to `psql`, which is not installed
+  here. Both suites run through the postgres driver the rest of the tooling
+  uses. `pnpm db:test` runs them together.
+- `public/brand/logo-full.svg` is a **placeholder** lockup. Replace it with the
+  real asset; nothing else needs to change.
+- Supabase issues no printed recovery codes for TOTP, so `/mfa` says an admin
+  can remove the factor instead of offering a recovery-code link.
+
+### Verified
+
+- Auth suite: 11 assertions green, run repeatedly, no fixture rows left behind.
+- RLS suite: still 36 assertions green after the fixture change.
+- Route behaviour against a running dev server: `/sign-in` and `/invite/:token`
+  serve 200 without a session; `/home`, `/my-issues` and `/mfa` redirect to
+  `/sign-in`; `/auth/callback` without a code redirects to
+  `/sign-in?error=auth_failed`; the rejection state renders the notice and does
+  not offer the OAuth buttons.
+- No secret name or value appears in the client bundle.
+- No `signInWithPassword`, `signInWithOtp`, `signUp` or `signInAnonymously`
+  anywhere in `src/`.
+
+### Before this can be used by a real person
+
+`docs/supabase-config.md` has the full list. The short version: enable Google
+and GitHub in the dashboard, disable the email provider, set the redirect
+allowlist, enable TOTP, and put the project's publishable key in
+`.env.local` — it currently still holds the placeholder from phase 1. The
+bootstrap administrator invite for `itsjitesh.work@gmail.com` is open and valid.
 
 ## Phase 6 — App shell `[ ]`
 

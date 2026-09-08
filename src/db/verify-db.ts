@@ -101,7 +101,9 @@ function report(label: string, ok: boolean, detail: string): void {
   if (!ok) {
     failures += 1;
   }
-  results.push(`${ok ? "PASS" : "FAIL"}  ${label}${detail ? ` — ${detail}` : ""}`);
+  results.push(
+    `${ok ? "PASS" : "FAIL"}  ${label}${detail ? ` — ${detail}` : ""}`,
+  );
 }
 
 try {
@@ -148,7 +150,9 @@ try {
     "triggers",
     missingTriggers.length === 0,
     `${triggerNames.length} distinct${
-      missingTriggers.length > 0 ? `, missing: ${missingTriggers.join(", ")}` : ""
+      missingTriggers.length > 0
+        ? `, missing: ${missingTriggers.join(", ")}`
+        : ""
     }`,
   );
 
