@@ -17,6 +17,20 @@ interface Enrolment {
 }
 
 /**
+ * Supabase's GoTrue client builds the QR data URI by naively prepending
+ * "data:image/svg+xml;utf-8," to the raw SVG the server returns. That SVG
+ * contains un-encoded "#" colour values (e.g. fill="#000000"), and "#" is a
+ * fragment delimiter in a data URI — so the browser silently truncates the
+ * source at the first "#" and renders nothing scannable. Re-encoding the SVG
+ * body with encodeURIComponent resolves it.
+ */
+function encodeQrDataUri(raw: string): string {
+  const prefix = "data:image/svg+xml;utf-8,";
+  if (!raw.startsWith(prefix)) return raw;
+  return prefix + encodeURIComponent(raw.slice(prefix.length));
+}
+
+/**
  * Handles both halves of the second factor: enrolment for someone who has never
  * set one up, and the challenge for someone who has. Which one applies is not
  * the user's choice, so it is derived from their existing factors rather than
@@ -162,7 +176,7 @@ export function MfaFlow() {
                 belt-and-braces guard against that same trailing control char. */}
             {/* eslint-disable @next/next/no-img-element -- see comment above: next/image cannot render this data URI */}
             <img
-              src={enrolment.qrCode.trimEnd()}
+              src={encodeQrDataUri(enrolment.qrCode.trimEnd())}
               alt="Two-factor setup QR code"
               width={160}
               height={160}
