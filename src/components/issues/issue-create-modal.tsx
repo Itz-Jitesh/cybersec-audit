@@ -1,10 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { createIssue } from "@/actions/issues";
-import { type EditorValue, RichEditor } from "@/components/editor/rich-editor";
+import type { EditorValue } from "@/components/editor/rich-editor";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
 import { MemberAvatar } from "@/components/shared/member-avatar";
 import {
@@ -34,6 +35,12 @@ import type { IssueLabelRef } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
 
 const PRIORITIES: IssuePriority[] = ["urgent", "high", "medium", "low", "none"];
+
+/** Same reason as the peek overlay: the editor is dead weight until this opens. */
+const RichEditor = dynamic(
+  () => import("@/components/editor/rich-editor").then((m) => m.RichEditor),
+  { ssr: false },
+);
 
 interface IssueCreateModalProps {
   open: boolean;

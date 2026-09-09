@@ -39,8 +39,21 @@ if (!env.DATABASE_POOL_URL && process.env.NODE_ENV === "production") {
   );
 }
 
+/**
+ * max was 1, which serialised every query in the process onto one backend: a
+ * page doing eight reads in Promise.all executed them one after another, and
+ * the round trips added up to most of the page's latency. Ten is safe against
+ * the transaction pooler, which multiplexes them, and is the number the
+ * connection has to be for parallel reads to actually be parallel.
+ */
 const connection =
-  globalForDb.connection ?? postgres(runtimeUrl, { prepare: false, max: 1 });
+  globalForDb.connection ??
+  postgres(runtimeUrl, {
+    prepare: false,
+    max: 10,
+    idle_timeout: 20,
+    connect_timeout: 10,
+  });
 
 if (process.env.NODE_ENV !== "production") {
   globalForDb.connection = connection;

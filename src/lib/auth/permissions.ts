@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, eq, or, sql } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import {
@@ -39,96 +40,98 @@ export interface SessionUser {
 }
 
 /** The user has signed in and belongs to this workspace, active. */
-export async function isActiveMember(userId: string): Promise<boolean> {
-  const rows = await db
-    .select({ userId: workspaceMembers.userId })
-    .from(workspaceMembers)
-    .where(
-      and(
-        eq(workspaceMembers.userId, userId),
-        eq(workspaceMembers.isActive, true),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
-}
+export const isActiveMember = cache(
+  async (userId: string): Promise<boolean> => {
+    const rows = await db
+      .select({ userId: workspaceMembers.userId })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.userId, userId),
+          eq(workspaceMembers.isActive, true),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+);
 
 /** admin, president or co_president — the three workspace-level roles. */
-export async function isWorkspaceAdmin(userId: string): Promise<boolean> {
-  const rows = await db
-    .select({ role: workspaceMembers.role })
-    .from(workspaceMembers)
-    .where(
-      and(
-        eq(workspaceMembers.userId, userId),
-        eq(workspaceMembers.isActive, true),
-        or(
-          eq(workspaceMembers.role, "admin"),
-          eq(workspaceMembers.role, "president"),
-          eq(workspaceMembers.role, "co_president"),
+export const isWorkspaceAdmin = cache(
+  async (userId: string): Promise<boolean> => {
+    const rows = await db
+      .select({ role: workspaceMembers.role })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.userId, userId),
+          eq(workspaceMembers.isActive, true),
+          or(
+            eq(workspaceMembers.role, "admin"),
+            eq(workspaceMembers.role, "president"),
+            eq(workspaceMembers.role, "co_president"),
+          ),
         ),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
-}
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+);
 
 /** Workspace admin, or lead of this specific team. */
-export async function isTeamLead(
-  userId: string,
-  teamId: string,
-): Promise<boolean> {
-  if (await isWorkspaceAdmin(userId)) {
-    return true;
-  }
-  const rows = await db
-    .select({ id: teamMembers.id })
-    .from(teamMembers)
-    .where(
-      and(
-        eq(teamMembers.teamId, teamId),
-        eq(teamMembers.userId, userId),
-        eq(teamMembers.role, "lead"),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
-}
+export const isTeamLead = cache(
+  async (userId: string, teamId: string): Promise<boolean> => {
+    if (await isWorkspaceAdmin(userId)) {
+      return true;
+    }
+    const rows = await db
+      .select({ id: teamMembers.id })
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.teamId, teamId),
+          eq(teamMembers.userId, userId),
+          eq(teamMembers.role, "lead"),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+);
 
 /**
  * Workspace admin, direct project member, or member of the project's team —
  * the same three-way union the policies compute.
  */
-export async function isProjectMember(
-  userId: string,
-  projectId: string,
-): Promise<boolean> {
-  const rows = await db
-    .select({ projectId: projects.id })
-    .from(projects)
-    .leftJoin(
-      projectMembers,
-      and(
-        eq(projectMembers.projectId, projects.id),
-        eq(projectMembers.userId, userId),
-      ),
-    )
-    .leftJoin(
-      teamMembers,
-      and(
-        eq(teamMembers.teamId, projects.teamId),
-        eq(teamMembers.userId, userId),
-      ),
-    )
-    .where(
-      and(
-        eq(projects.id, projectId),
-        sql`(${projectMembers.id} is not null or ${teamMembers.id} is not null)`,
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
-}
+export const isProjectMember = cache(
+  async (userId: string, projectId: string): Promise<boolean> => {
+    const rows = await db
+      .select({ projectId: projects.id })
+      .from(projects)
+      .leftJoin(
+        projectMembers,
+        and(
+          eq(projectMembers.projectId, projects.id),
+          eq(projectMembers.userId, userId),
+        ),
+      )
+      .leftJoin(
+        teamMembers,
+        and(
+          eq(teamMembers.teamId, projects.teamId),
+          eq(teamMembers.userId, userId),
+        ),
+      )
+      .where(
+        and(
+          eq(projects.id, projectId),
+          sql`(${projectMembers.id} is not null or ${teamMembers.id} is not null)`,
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+);
 
 /** Workspace admin, the project's team lead, or a project admin. */
 export async function canManageProject(

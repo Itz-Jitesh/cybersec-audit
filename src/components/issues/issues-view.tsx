@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { CircleDot, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -58,8 +63,6 @@ export function IssuesView({
 }: IssuesViewProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  // Memoised so the callbacks below do not see a new key on every render.
-  const queryKey = useMemo(() => ["issues", projectId] as const, [projectId]);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [peekId, setPeekId] = useState<string | null>(null);
@@ -69,23 +72,39 @@ export function IssuesView({
   /** Anchor for Shift-click range selection. */
   const lastClickedId = useRef<string | null>(null);
 
+  /**
+   * groupBy is deliberately absent from the key. Grouping happens in
+   * ListLayout from the rows already in hand; the server query ignores it, so
+   * putting it in the key would refetch the same rows on every regroup.
+   */
+  const queryKey = useMemo(
+    () => ["issues", projectId, filters] as const,
+    [projectId, filters],
+  );
+
+  const isUnfiltered = useMemo(
+    () => Object.values(filters).every((value) => value === undefined),
+    [filters],
+  );
+
   const { data: issues = initialIssues } = useQuery({
-    queryKey: [...queryKey, groupBy, filters],
-    queryFn: () => fetchIssues({ ...filters, groupBy }),
-    initialData: initialIssues,
+    queryKey,
+    queryFn: () => fetchIssues(filters),
+    // The server component already delivered exactly this set, but only for
+    // the unfiltered view. Seeding a filtered key with it would show the wrong
+    // rows and, worse, count as fresh under staleTime so the fetch never runs.
+    initialData: isUnfiltered ? initialIssues : undefined,
+    placeholderData: keepPreviousData,
   });
 
   const refresh = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: [...queryKey, groupBy, filters] });
+    void queryClient.invalidateQueries({ queryKey: ["issues", projectId] });
     router.refresh();
-  }, [queryClient, queryKey, groupBy, filters, router]);
+  }, [queryClient, projectId, router]);
 
-  const handleFilterChange = useCallback(
-    (next: PartialFilters) => {
-      setFilters((prev: PartialFilters) => ({ ...prev, ...next }));
-    },
-    [],
-  );
+  const handleFilterChange = useCallback((next: PartialFilters) => {
+    setFilters((prev: PartialFilters) => ({ ...prev, ...next }));
+  }, []);
 
   /**
    * The five-step optimistic contract from docs/03-TRD.md §3.1: cancel any
@@ -129,146 +148,156 @@ export function IssuesView({
     },
   });
 
-  function stateOf(stateId: string): StateOption | undefined {
-    return states.find((state) => state.id === stateId);
-  }
+  const stateOf = useCallback(
+    (stateId: string): StateOption | undefined =>
+      states.find((state) => state.id === stateId),
+    [states],
+  );
 
-  const handlers: IssueRowHandlers = {
-    onOpen: (issueId) => setPeekId(issueId),
+  /**
+   * Memoised because IssueListRow is memoised, and a handler bag rebuilt on
+   * every render would defeat that: selecting one row would re-render all two
+   * hundred.
+   */
+  const handlers: IssueRowHandlers = useMemo(
+    () => ({
+      onOpen: (issueId) => setPeekId(issueId),
 
-    onSelect: (issueId, event) => {
-      setSelected((current) => {
-        const next = new Set(current);
+      onSelect: (issueId, event) => {
+        setSelected((current) => {
+          const next = new Set(current);
 
-        if (event.shiftKey && lastClickedId.current) {
-          // Range select across the flat, already-grouped order the list is
-          // rendered in, so what gets selected is what the eye sees between the
-          // two clicks.
-          const order = issues.map((issue) => issue.id);
-          const from = order.indexOf(lastClickedId.current);
-          const to = order.indexOf(issueId);
-          if (from !== -1 && to !== -1) {
-            const [start, end] = from < to ? [from, to] : [to, from];
-            for (const id of order.slice(start, end + 1)) next.add(id);
-            return next;
+          if (event.shiftKey && lastClickedId.current) {
+            // Range select across the flat, already-grouped order the list is
+            // rendered in, so what gets selected is what the eye sees between the
+            // two clicks.
+            const order = issues.map((issue) => issue.id);
+            const from = order.indexOf(lastClickedId.current);
+            const to = order.indexOf(issueId);
+            if (from !== -1 && to !== -1) {
+              const [start, end] = from < to ? [from, to] : [to, from];
+              for (const id of order.slice(start, end + 1)) next.add(id);
+              return next;
+            }
           }
-        }
 
-        if (next.has(issueId)) next.delete(issueId);
-        else next.add(issueId);
-        lastClickedId.current = issueId;
-        return next;
-      });
-    },
+          if (next.has(issueId)) next.delete(issueId);
+          else next.add(issueId);
+          lastClickedId.current = issueId;
+          return next;
+        });
+      },
 
-    onSetState: (issueId, stateId) => {
-      const target = stateOf(stateId);
-      mutate.mutate({
-        ids: [issueId],
-        patch: (issue) => ({
-          ...issue,
-          stateId,
-          stateName: target?.name ?? issue.stateName,
-          stateGroup: target?.group ?? issue.stateGroup,
-          stateColor: target?.color ?? issue.stateColor,
-        }),
-        run: () => updateIssue({ issueId, stateId }),
-      });
-    },
+      onSetState: (issueId, stateId) => {
+        const target = stateOf(stateId);
+        mutate.mutate({
+          ids: [issueId],
+          patch: (issue) => ({
+            ...issue,
+            stateId,
+            stateName: target?.name ?? issue.stateName,
+            stateGroup: target?.group ?? issue.stateGroup,
+            stateColor: target?.color ?? issue.stateColor,
+          }),
+          run: () => updateIssue({ issueId, stateId }),
+        });
+      },
 
-    onSetPriority: (issueId, priority) => {
-      mutate.mutate({
-        ids: [issueId],
-        patch: (issue) => ({ ...issue, priority }),
-        run: () => updateIssue({ issueId, priority }),
-      });
-    },
+      onSetPriority: (issueId, priority) => {
+        mutate.mutate({
+          ids: [issueId],
+          patch: (issue) => ({ ...issue, priority }),
+          run: () => updateIssue({ issueId, priority }),
+        });
+      },
 
-    onToggleAssignee: (issueId, userId) => {
-      const issue = issues.find((row) => row.id === issueId);
-      if (!issue) return;
+      onToggleAssignee: (issueId, userId) => {
+        const issue = issues.find((row) => row.id === issueId);
+        if (!issue) return;
 
-      const current = issue.assignees.map((assignee) => assignee.id);
-      const next = current.includes(userId)
-        ? current.filter((id) => id !== userId)
-        : [...current, userId];
+        const current = issue.assignees.map((assignee) => assignee.id);
+        const next = current.includes(userId)
+          ? current.filter((id) => id !== userId)
+          : [...current, userId];
 
-      const member = members.find((row) => row.userId === userId);
+        const member = members.find((row) => row.userId === userId);
 
-      mutate.mutate({
-        ids: [issueId],
-        patch: (row) => ({
-          ...row,
-          assignees: next.map(
-            (id) =>
-              row.assignees.find((assignee) => assignee.id === id) ?? {
-                id,
-                displayName: member?.displayName ?? "",
-                avatarUrl: member?.avatarUrl ?? null,
-              },
-          ),
-        }),
-        run: () => setAssignees({ issueId, userIds: next }),
-      });
-    },
+        mutate.mutate({
+          ids: [issueId],
+          patch: (row) => ({
+            ...row,
+            assignees: next.map(
+              (id) =>
+                row.assignees.find((assignee) => assignee.id === id) ?? {
+                  id,
+                  displayName: member?.displayName ?? "",
+                  avatarUrl: member?.avatarUrl ?? null,
+                },
+            ),
+          }),
+          run: () => setAssignees({ issueId, userIds: next }),
+        });
+      },
 
-    onToggleLabel: (issueId, labelId) => {
-      const issue = issues.find((row) => row.id === issueId);
-      if (!issue) return;
+      onToggleLabel: (issueId, labelId) => {
+        const issue = issues.find((row) => row.id === issueId);
+        if (!issue) return;
 
-      const current = issue.labels.map((label) => label.id);
-      const next = current.includes(labelId)
-        ? current.filter((id) => id !== labelId)
-        : [...current, labelId];
+        const current = issue.labels.map((label) => label.id);
+        const next = current.includes(labelId)
+          ? current.filter((id) => id !== labelId)
+          : [...current, labelId];
 
-      mutate.mutate({
-        ids: [issueId],
-        patch: (row) => ({
-          ...row,
-          labels: next
-            .map((id) => labels.find((label) => label.id === id))
-            .filter((label): label is IssueLabelRef => label !== undefined),
-        }),
-        run: () => setLabels({ issueId, labelIds: next }),
-      });
-    },
+        mutate.mutate({
+          ids: [issueId],
+          patch: (row) => ({
+            ...row,
+            labels: next
+              .map((id) => labels.find((label) => label.id === id))
+              .filter((label): label is IssueLabelRef => label !== undefined),
+          }),
+          run: () => setLabels({ issueId, labelIds: next }),
+        });
+      },
 
-    onArchive: (issueId) => {
-      // Archiving removes the row from this view, so the optimistic patch is a
-      // removal rather than a field change and the list never refetches whole.
-      void (async () => {
-        await queryClient.cancelQueries({ queryKey });
-        const previous = queryClient.getQueryData<IssueListItem[]>(queryKey);
+      onArchive: (issueId) => {
+        // Archiving removes the row from this view, so the optimistic patch is a
+        // removal rather than a field change and the list never refetches whole.
+        void (async () => {
+          await queryClient.cancelQueries({ queryKey });
+          const previous = queryClient.getQueryData<IssueListItem[]>(queryKey);
 
-        queryClient.setQueryData<IssueListItem[]>(queryKey, (current) =>
-          (current ?? []).filter((issue) => issue.id !== issueId),
-        );
+          queryClient.setQueryData<IssueListItem[]>(queryKey, (current) =>
+            (current ?? []).filter((issue) => issue.id !== issueId),
+          );
 
-        const result = await archiveIssue({ issueId });
+          const result = await archiveIssue({ issueId });
 
-        if (!result.ok) {
-          if (previous) queryClient.setQueryData(queryKey, previous);
-          toast.error(result.error);
-          return;
-        }
+          if (!result.ok) {
+            if (previous) queryClient.setQueryData(queryKey, previous);
+            toast.error(result.error);
+            return;
+          }
 
-        toast.success("Issue archived.");
-        void queryClient.invalidateQueries({ queryKey });
-      })();
-    },
+          toast.success("Issue archived.");
+          void queryClient.invalidateQueries({ queryKey });
+        })();
+      },
 
-    onDelete: (issueId) => {
-      void (async () => {
-        const result = await deleteIssue({ issueId });
-        if (!result.ok) {
-          toast.error(result.error);
-          return;
-        }
-        toast.success("Issue deleted.");
-        refresh();
-      })();
-    },
-  };
+      onDelete: (issueId) => {
+        void (async () => {
+          const result = await deleteIssue({ issueId });
+          if (!result.ok) {
+            toast.error(result.error);
+            return;
+          }
+          toast.success("Issue deleted.");
+          refresh();
+        })();
+      },
+    }),
+    [issues, members, labels, stateOf, mutate, queryClient, queryKey, refresh],
+  );
 
   const selectedIds = [...selected];
 

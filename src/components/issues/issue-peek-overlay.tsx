@@ -2,14 +2,25 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Maximize2 } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 
 import { loadIssueDetail } from "@/actions/issue-detail";
-import { IssueDetail } from "@/components/issues/issue-detail";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { IssueLabelRef } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
+
+/**
+ * Loaded on demand. IssueDetail pulls in TipTap and ProseMirror, which is the
+ * bulk of this route's JavaScript, and the overlay does not exist until someone
+ * clicks a row. Static-importing it made every visitor to the list download an
+ * editor they may never open.
+ */
+const IssueDetail = dynamic(
+  () => import("@/components/issues/issue-detail").then((m) => m.IssueDetail),
+  { ssr: false },
+);
 
 interface IssuePeekOverlayProps {
   issueId: string;

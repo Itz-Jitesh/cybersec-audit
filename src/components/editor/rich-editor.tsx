@@ -55,6 +55,17 @@ export function RichEditor({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef<EditorValue | null>(null);
 
+  /**
+   * Callers pass these as inline arrows, so their identity changes on every
+   * parent render. Holding them in refs keeps the unmount effect below
+   * depending on nothing — otherwise its cleanup ran on every parent render,
+   * cancelling the debounce and firing a write each time.
+   */
+  const onChangeRef = useRef(onChange);
+  const onAutosaveRef = useRef(onAutosave);
+  onChangeRef.current = onChange;
+  onAutosaveRef.current = onAutosave;
+
   const editor = useEditor({
     immediatelyRender: false,
     editable,
@@ -117,15 +128,16 @@ export function RichEditor({
         json: instance.getJSON(),
       };
       latest.current = value;
-      onChange?.(value);
+      onChangeRef.current?.(value);
 
-      if (!onAutosave) return;
+      if (!onAutosaveRef.current) return;
 
       // Debounced, so a paragraph of typing is one write rather than one per
       // keystroke.
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
-        if (latest.current) void onAutosave(latest.current);
+        timer.current = null;
+        if (latest.current) void onAutosaveRef.current?.(latest.current);
       }, autosaveDelay);
     },
   });
@@ -136,10 +148,11 @@ export function RichEditor({
     return () => {
       if (timer.current) {
         clearTimeout(timer.current);
-        if (latest.current && onAutosave) void onAutosave(latest.current);
+        timer.current = null;
+        if (latest.current) void onAutosaveRef.current?.(latest.current);
       }
     };
-  }, [onAutosave]);
+  }, []);
 
   return <EditorContent editor={editor} className={className} />;
 }

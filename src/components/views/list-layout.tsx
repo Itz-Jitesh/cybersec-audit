@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
+import { useMemo } from "react";
 
 import {
   IssueListRow,
@@ -8,7 +9,7 @@ import {
 } from "@/components/issues/issue-list-row";
 import { IssueQuickAdd } from "@/components/issues/issue-quick-add";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
-import { type StateGroup,StateIcon } from "@/components/shared/state-icon";
+import { type StateGroup, StateIcon } from "@/components/shared/state-icon";
 import type { IssueLabelRef, IssueListItem } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,9 @@ interface GroupDef {
 }
 
 const PRIORITY_ORDER = ["urgent", "high", "medium", "low", "none"] as const;
+
+/** Stable empty array so the store selector does not return a new one each read. */
+const EMPTY_COLLAPSED: string[] = [];
 
 function buildGroups(
   issues: IssueListItem[],
@@ -181,17 +185,14 @@ function buildGroups(
 function GroupHeader({
   group,
   count,
-  groupId,
-  projectId,
+  collapsed,
+  onToggle,
 }: {
   group: GroupDef;
   count: number;
-  groupId: string;
-  projectId: string;
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
-  const { toggleGroup, isCollapsed } = useIssueViewStore();
-  const collapsed = isCollapsed(projectId, groupId);
-
   return (
     <header
       className={cn(
@@ -200,7 +201,7 @@ function GroupHeader({
     >
       <button
         type="button"
-        onClick={() => toggleGroup(projectId, groupId)}
+        onClick={onToggle}
         aria-expanded={!collapsed}
         aria-label={`${collapsed ? "Expand" : "Collapse"} ${group.name}`}
         className="shrink-0 text-text-400 hover:text-text-200"
@@ -253,31 +254,37 @@ export function ListLayout({
   handlers,
   onCreated,
 }: ListLayoutProps) {
-  const { groups, grouped } = buildGroups(
-    issues,
-    groupBy,
-    states,
-    members,
-    labels,
-    cycles,
-    modules,
+  // Regrouping two hundred rows on every keystroke elsewhere in the view is
+  // pure waste; the inputs below are the only things that can change it.
+  const { groups, grouped } = useMemo(
+    () =>
+      buildGroups(issues, groupBy, states, members, labels, cycles, modules),
+    [issues, groupBy, states, members, labels, cycles, modules],
+  );
+
+  const toggleGroup = useIssueViewStore((state) => state.toggleGroup);
+  // A selector rather than the whole store: without it every header re-renders
+  // whenever any group anywhere is folded.
+  const collapsedIds = useIssueViewStore(
+    (state) => state.collapsed[projectId] ?? EMPTY_COLLAPSED,
   );
 
   return (
     <div className="pb-24">
       {groups.map((group) => {
         const items = grouped.get(group.id) ?? [];
+        const collapsed = collapsedIds.includes(group.id);
 
         return (
           <section key={group.id}>
             <GroupHeader
               group={group}
               count={items.length}
-              groupId={group.id}
-              projectId={projectId}
+              collapsed={collapsed}
+              onToggle={() => toggleGroup(projectId, group.id)}
             />
 
-            {items.length > 0 && (
+            {!collapsed && items.length > 0 && (
               <>
                 {items.map((issue) => (
                   <IssueListRow

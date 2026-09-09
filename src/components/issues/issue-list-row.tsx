@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Trash2,
 } from "lucide-react";
+import { memo } from "react";
 import { toast } from "sonner";
 
 import {
@@ -63,7 +64,7 @@ interface IssueListRowProps {
  * is what keeps the row quiet enough to scan a hundred of them; the space is
  * reserved either way so nothing shifts when they arrive.
  */
-export function IssueListRow({
+function IssueListRowImpl({
   issue,
   states,
   members,
@@ -274,3 +275,10 @@ export function IssueListRow({
     </div>
   );
 }
+
+/**
+ * Memoised. A two-hundred-row list re-rendering every row because one row was
+ * selected is the difference between a list that feels instant and one that
+ * stutters. The handler bag is memoised in IssuesView for the same reason.
+ */
+export const IssueListRow = memo(IssueListRowImpl);

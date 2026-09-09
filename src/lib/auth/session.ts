@@ -2,6 +2,7 @@ import "server-only";
 
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { profiles, workspaceMembers } from "@/db/schema";
@@ -23,16 +24,16 @@ export interface CurrentUser {
  * checking it, so a forged or stale cookie would be believed. Anything that
  * gates access has to use the verified call.
  */
-export async function getSession() {
+export const getSession = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
-}
+});
 
 /** The profile joined with the workspace membership, or null when not signed in. */
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const user = await getSession();
   if (!user) {
     return null;
@@ -53,7 +54,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     .limit(1);
 
   return row ?? null;
-}
+});
 
 /**
  * For pages that require a member. Middleware already turns away anyone without

@@ -84,8 +84,27 @@ async function guardIssue(
   return { ok: true as const, projectId, userId: user?.id ?? null };
 }
 
+/**
+ * For changes that add or remove a row: the issue list itself has to be
+ * re-rendered on the server, so the next navigation does not show a stale set.
+ */
 function revalidateProject(projectId: string): void {
   revalidatePath(`/projects/${projectId}/issues`);
+  revalidatePath("/home");
+  revalidatePath("/my-issues");
+}
+
+/**
+ * For field edits made from the list — state, priority, assignees, labels,
+ * order. The client has already patched exactly this row into the TanStack
+ * cache under the optimistic contract, so revalidating the issues route would
+ * make Next re-render the whole page and stream it back inside the action's
+ * response: a dozen serialised reads and a full RSC payload to deliver a change
+ * the browser is already showing. That was the single largest cost of clicking
+ * a chip. The aggregate views are still marked stale, since nothing on the
+ * client patched those.
+ */
+function revalidateAggregates(): void {
   revalidatePath("/home");
   revalidatePath("/my-issues");
 }
@@ -248,7 +267,7 @@ export async function updateIssue(input: unknown): Promise<ActionResult<null>> {
       })
       .where(eq(issues.id, issueId));
 
-    revalidateProject(guard.projectId);
+    revalidateAggregates();
     return ok(null);
   });
 }
@@ -298,7 +317,7 @@ export async function updateIssueOrder(
       .set({ stateId: parsed.data.stateId, sortOrder })
       .where(eq(issues.id, parsed.data.issueId));
 
-    revalidateProject(guard.projectId);
+    revalidateAggregates();
     return ok({ sortOrder });
   });
 }
@@ -405,7 +424,7 @@ export async function setAssignees(
       }
     });
 
-    revalidateProject(guard.projectId);
+    revalidateAggregates();
     return ok(null);
   });
 }
@@ -451,7 +470,7 @@ export async function setLabels(input: unknown): Promise<ActionResult<null>> {
       }
     });
 
-    revalidateProject(guard.projectId);
+    revalidateAggregates();
     return ok(null);
   });
 }
@@ -823,7 +842,7 @@ export async function toggleSubscription(
       await db
         .delete(issueSubscribers)
         .where(eq(issueSubscribers.id, existing.id));
-      revalidateProject(guard.projectId);
+      revalidateAggregates();
       return ok({ subscribed: false });
     }
 
@@ -832,7 +851,7 @@ export async function toggleSubscription(
       .values({ issueId: parsed.data.issueId, userId: guard.userId })
       .onConflictDoNothing();
 
-    revalidateProject(guard.projectId);
+    revalidateAggregates();
     return ok({ subscribed: true });
   });
 }
