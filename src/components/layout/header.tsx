@@ -1,20 +1,15 @@
 "use client";
 
-import { Bell, Plus, Search } from "lucide-react";
-import Link from "next/link";
+import { Plus, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
+import { CommandPalette } from "@/components/layout/command-palette";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { Kbd } from "@/components/shared/kbd";
 import { MemberAvatar } from "@/components/shared/member-avatar";
+import { ShortcutCheatSheet } from "@/components/shared/shortcut-cheatsheet";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,22 +72,7 @@ export function Header({
         New issue
       </Button>
 
-      <Link
-        href="/notifications"
-        aria-label={
-          unreadCount > 0
-            ? `Notifications, ${unreadCount} unread`
-            : "Notifications"
-        }
-        className="relative rounded-md p-1.5 text-text-300 transition-colors duration-[120ms] ease-out hover:bg-bg-80 hover:text-text-100"
-      >
-        <Bell size={16} strokeWidth={1.5} />
-        {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-2xs font-medium text-on-brand">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
-      </Link>
+      <NotificationBell user={user} unreadCount={unreadCount} />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild aria-label="Account menu">
@@ -123,16 +103,9 @@ export function Header({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={paletteOpen} onOpenChange={setPaletteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Search</DialogTitle>
-            <DialogDescription>
-              Full-text issue search and command mode arrive in phase 10.
-            </DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
+      {/* Phase 10 command palette — opens on ⌘K, wired by the listener above. */}
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <ShortcutCheatSheet />
     </header>
   );
 }

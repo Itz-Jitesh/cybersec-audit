@@ -38,6 +38,8 @@ import { SaveViewDialog } from "@/components/views/save-view-dialog";
 import { SpreadsheetLayout } from "@/components/views/spreadsheet-layout";
 import type { IssueLabelRef, IssueListItem } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
+import { useProjectRealtime } from "@/hooks/realtime/use-project-realtime";
+import { useIssueShortcuts } from "@/hooks/use-issue-shortcuts";
 import type { IssueFilters, IssuePriority } from "@/lib/validators/issue";
 import {
   DEFAULT_DISPLAY_PROPS,
@@ -105,6 +107,10 @@ export function IssuesView({
     void useProjectViewStore.persist.rehydrate();
   }, []);
 
+  // One channel per open project: issues moved or created in another browser
+  // patch the query cache here within a second, with no refetch.
+  useProjectRealtime({ projectId, states });
+
   // Before rehydration there is no stored layout or filter set, so the list
   // renders — exactly what the server delivered.
   const layout: IssueLayout = hydrated ? (stored?.layout ?? "list") : "list";
@@ -146,6 +152,27 @@ export function IssuesView({
     void queryClient.invalidateQueries({ queryKey: ["issues", projectId] });
     router.refresh();
   }, [queryClient, projectId, router]);
+
+  // View-level shortcuts (docs/06-UX-LAYOUT-SPEC.md §15): C, 1–4, /,
+  // Shift+↑/↓, Esc. The hook keeps the target in a ref, so passing a fresh
+  // object here is what keeps its closures current between renders.
+  useIssueShortcuts({
+    onCreateIssue: () => setCreateOpen(true),
+    onSwitchLayout: (next) => setStoredLayout(projectId, next),
+    onExpandSearch: () =>
+      document.getElementById("filter-search")?.focus(),
+    onExtendSelection: (direction) => {
+      if (issues.length === 0) return;
+      const order = issues.map((issue) => issue.id);
+      const anchor = lastClickedId.current ?? order[0];
+      const from = order.indexOf(anchor);
+      if (from === -1) return;
+      const to = Math.min(Math.max(from + direction, 0), order.length - 1);
+      setSelected((current) => new Set(current).add(order[to]));
+      lastClickedId.current = order[to];
+    },
+    onClearSelection: () => setSelected(new Set()),
+  });
 
   const handleFilterChange = useCallback(
     (next: PartialFilters) => {

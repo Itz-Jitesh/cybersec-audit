@@ -30,6 +30,8 @@ const serverSchema = clientSchema.extend({
   DATABASE_POOL_URL: z.string().url().optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   SEED_ADMIN_EMAIL: z.string().email().optional(),
+  /** Shared secret Vercel Cron sends as `Authorization: Bearer <value>`. */
+  CRON_SECRET: z.string().min(1).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
@@ -43,6 +45,7 @@ export function serverEnv(): ServerEnv {
     DATABASE_POOL_URL: process.env.DATABASE_POOL_URL,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     SEED_ADMIN_EMAIL: process.env.SEED_ADMIN_EMAIL,
+    CRON_SECRET: process.env.CRON_SECRET,
   });
 
   if (!parsed.success) {

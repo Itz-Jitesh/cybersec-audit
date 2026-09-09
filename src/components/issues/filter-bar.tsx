@@ -533,6 +533,7 @@ export function FilterBar({
             className="absolute top-1/2 left-2 -translate-y-1/2 text-text-400"
           />
           <Input
+            id="filter-search"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             onKeyDown={(e) => {
