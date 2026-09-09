@@ -37,6 +37,7 @@ import {
 import type { IssueLabelRef, IssueListItem } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
 import { cn } from "@/lib/utils";
+import type { DisplayProperties } from "@/lib/validators/view";
 
 export interface IssueRowHandlers {
   onOpen: (issueId: string) => void;
@@ -55,6 +56,7 @@ interface IssueListRowProps {
   members: MemberRow[];
   labels: IssueLabelRef[];
   isSelected: boolean;
+  properties: DisplayProperties;
   canDelete: boolean;
   handlers: IssueRowHandlers;
 }
@@ -70,6 +72,7 @@ function IssueListRowImpl({
   members,
   labels,
   isSelected,
+  properties,
   canDelete,
   handlers,
 }: IssueListRowProps) {
@@ -112,23 +115,30 @@ function IssueListRowImpl({
         />
       </span>
 
-      <IssueIdBadge
-        identifier={issue.identifier}
-        sequenceId={issue.sequenceId}
-      />
+      {properties.id && (
+        <IssueIdBadge
+          identifier={issue.identifier}
+          sequenceId={issue.sequenceId}
+        />
+      )}
 
-      <PriorityDropdown
-        value={issue.priority as IssuePriority}
-        onSelect={(priority) => handlers.onSetPriority(issue.id, priority)}
-      >
-        <button
-          type="button"
-          aria-label={`Priority: ${issue.priority}`}
-          className="shrink-0 rounded-sm p-0.5 hover:bg-bg-70"
+      {properties.priority && (
+        <PriorityDropdown
+          value={issue.priority as IssuePriority}
+          onSelect={(priority) => handlers.onSetPriority(issue.id, priority)}
         >
-          <PriorityIcon priority={issue.priority as IssuePriority} size={14} />
-        </button>
-      </PriorityDropdown>
+          <button
+            type="button"
+            aria-label={`Priority: ${issue.priority}`}
+            className="shrink-0 rounded-sm p-0.5 hover:bg-bg-70"
+          >
+            <PriorityIcon
+              priority={issue.priority as IssuePriority}
+              size={14}
+            />
+          </button>
+        </PriorityDropdown>
+      )}
 
       <span
         className={cn(
@@ -139,34 +149,36 @@ function IssueListRowImpl({
         {issue.name}
       </span>
 
-      {issue.subIssueCount > 0 && (
+      {properties.subIssueCount && issue.subIssueCount > 0 && (
         <span className="shrink-0 text-xs text-text-400">
           {issue.completedSubIssueCount}/{issue.subIssueCount}
         </span>
       )}
 
-      <LabelDropdown
-        labels={labels}
-        selected={labelIds}
-        onToggle={(labelId) => handlers.onToggleLabel(issue.id, labelId)}
-      >
-        <button
-          type="button"
-          aria-label="Labels"
-          className="hidden shrink-0 items-center gap-1 lg:flex"
+      {properties.labels && (
+        <LabelDropdown
+          labels={labels}
+          selected={labelIds}
+          onToggle={(labelId) => handlers.onToggleLabel(issue.id, labelId)}
         >
-          {issue.labels.slice(0, 2).map((label) => (
-            <LabelChip key={label.id} label={label} />
-          ))}
-          {issue.labels.length > 2 && (
-            <span className="text-xs text-text-400">
-              +{issue.labels.length - 2}
-            </span>
-          )}
-        </button>
-      </LabelDropdown>
+          <button
+            type="button"
+            aria-label="Labels"
+            className="hidden shrink-0 items-center gap-1 lg:flex"
+          >
+            {issue.labels.slice(0, 2).map((label) => (
+              <LabelChip key={label.id} label={label} />
+            ))}
+            {issue.labels.length > 2 && (
+              <span className="text-xs text-text-400">
+                +{issue.labels.length - 2}
+              </span>
+            )}
+          </button>
+        </LabelDropdown>
+      )}
 
-      {issue.targetDate && (
+      {properties.dueDate && issue.targetDate && (
         <DateChip
           date={issue.targetDate}
           variant="target"
@@ -174,54 +186,58 @@ function IssueListRowImpl({
         />
       )}
 
-      <AssigneeDropdown
-        members={members}
-        selected={assigneeIds}
-        onToggle={(userId) => handlers.onToggleAssignee(issue.id, userId)}
-      >
-        <button
-          type="button"
-          aria-label="Assignees"
-          className="shrink-0 rounded-full p-0.5 hover:bg-bg-70"
+      {properties.assignee && (
+        <AssigneeDropdown
+          members={members}
+          selected={assigneeIds}
+          onToggle={(userId) => handlers.onToggleAssignee(issue.id, userId)}
         >
-          {issue.assignees.length > 0 ? (
-            <AvatarGroup
-              users={issue.assignees.map((assignee) => ({
-                id: assignee.id,
-                displayName: assignee.displayName,
-                avatarUrl: assignee.avatarUrl,
-              }))}
-              max={3}
-              size={20}
-            />
-          ) : (
-            <span className="flex size-5 items-center justify-center rounded-full border border-dashed border-border-strong text-2xs text-text-400">
-              +
-            </span>
-          )}
-        </button>
-      </AssigneeDropdown>
+          <button
+            type="button"
+            aria-label="Assignees"
+            className="shrink-0 rounded-full p-0.5 hover:bg-bg-70"
+          >
+            {issue.assignees.length > 0 ? (
+              <AvatarGroup
+                users={issue.assignees.map((assignee) => ({
+                  id: assignee.id,
+                  displayName: assignee.displayName,
+                  avatarUrl: assignee.avatarUrl,
+                }))}
+                max={3}
+                size={20}
+              />
+            ) : (
+              <span className="flex size-5 items-center justify-center rounded-full border border-dashed border-border-strong text-2xs text-text-400">
+                +
+              </span>
+            )}
+          </button>
+        </AssigneeDropdown>
+      )}
 
-      <StateDropdown
-        states={states}
-        value={issue.stateId}
-        onSelect={(stateId) => handlers.onSetState(issue.id, stateId)}
-      >
-        <button
-          type="button"
-          aria-label={`State: ${issue.stateName}`}
-          className="flex h-6 shrink-0 items-center gap-1.5 rounded-md border border-border-subtle px-1.5 hover:bg-bg-70"
+      {properties.state && (
+        <StateDropdown
+          states={states}
+          value={issue.stateId}
+          onSelect={(stateId) => handlers.onSetState(issue.id, stateId)}
         >
-          <StateIcon
-            group={issue.stateGroup as StateGroup}
-            color={issue.stateColor}
-            size={12}
-          />
-          <span className="hidden text-xs text-text-200 sm:inline">
-            {issue.stateName}
-          </span>
-        </button>
-      </StateDropdown>
+          <button
+            type="button"
+            aria-label={`State: ${issue.stateName}`}
+            className="flex h-6 shrink-0 items-center gap-1.5 rounded-md border border-border-subtle px-1.5 hover:bg-bg-70"
+          >
+            <StateIcon
+              group={issue.stateGroup as StateGroup}
+              color={issue.stateColor}
+              size={12}
+            />
+            <span className="hidden text-xs text-text-200 sm:inline">
+              {issue.stateName}
+            </span>
+          </button>
+        </StateDropdown>
+      )}
 
       <DropdownMenu>
         <DropdownMenuTrigger

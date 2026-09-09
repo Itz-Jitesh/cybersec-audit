@@ -12,8 +12,10 @@ import type { StateOption } from "@/components/issues/issue-row-dropdowns";
 import { type StateGroup, StateIcon } from "@/components/shared/state-icon";
 import type { IssueLabelRef, IssueListItem } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
 import { cn } from "@/lib/utils";
 import type { IssueFilters } from "@/lib/validators/issue";
+import type { DisplayProperties } from "@/lib/validators/view";
 import { useIssueViewStore } from "@/stores/issue-view-store";
 
 interface ListLayoutProps {
@@ -25,6 +27,7 @@ interface ListLayoutProps {
   cycles: { id: string; name: string }[];
   modules: { id: string; name: string }[];
   groupBy: IssueFilters["groupBy"];
+  properties: DisplayProperties;
   selectedIds: Set<string>;
   canDelete: boolean;
   handlers: IssueRowHandlers;
@@ -240,6 +243,16 @@ function GroupHeader({
   );
 }
 
+/** One entry in the flattened, windowable render order. */
+type Entry =
+  | { kind: "header"; group: GroupDef; count: number; collapsed: boolean }
+  | { kind: "issue"; issue: IssueListItem }
+  | { kind: "quick-add"; stateId: string };
+
+const HEADER_HEIGHT = 36;
+const ROW_HEIGHT = 38;
+const QUICK_ADD_HEIGHT = 38;
+
 export function ListLayout({
   projectId,
   issues,
@@ -249,6 +262,7 @@ export function ListLayout({
   cycles,
   modules,
   groupBy,
+  properties,
   selectedIds,
   canDelete,
   handlers,
@@ -269,48 +283,89 @@ export function ListLayout({
     (state) => state.collapsed[projectId] ?? EMPTY_COLLAPSED,
   );
 
+  /**
+   * Headers, rows and quick-adds flattened into one array in render order.
+   * Virtualising a grouped list means windowing across the groups rather than
+   * inside each of them, and that is only possible once the nesting is gone.
+   */
+  const entries = useMemo(() => {
+    const flat: Entry[] = [];
+
+    for (const group of groups) {
+      const items = grouped.get(group.id) ?? [];
+      const collapsed = collapsedIds.includes(group.id);
+
+      flat.push({ kind: "header", group, count: items.length, collapsed });
+      if (collapsed || items.length === 0) continue;
+
+      for (const issue of items) flat.push({ kind: "issue", issue });
+      if (groupBy === "state") {
+        flat.push({ kind: "quick-add", stateId: group.id });
+      }
+    }
+
+    return flat;
+  }, [collapsedIds, groupBy, grouped, groups]);
+
+  const heights = useMemo(
+    () =>
+      entries.map((entry) =>
+        entry.kind === "header"
+          ? HEADER_HEIGHT
+          : entry.kind === "issue"
+            ? ROW_HEIGHT
+            : QUICK_ADD_HEIGHT,
+      ),
+    [entries],
+  );
+
+  const { scrollRef, start, end, paddingTop, paddingBottom } = useVirtualRows({
+    count: entries.length,
+    rowHeight: heights,
+  });
+
   return (
-    <div className="pb-24">
-      {groups.map((group) => {
-        const items = grouped.get(group.id) ?? [];
-        const collapsed = collapsedIds.includes(group.id);
+    <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div style={{ paddingTop, paddingBottom }} className="pb-24">
+        {entries.slice(start, end).map((entry, index) => {
+          if (entry.kind === "header") {
+            return (
+              <GroupHeader
+                key={`header:${entry.group.id}`}
+                group={entry.group}
+                count={entry.count}
+                collapsed={entry.collapsed}
+                onToggle={() => toggleGroup(projectId, entry.group.id)}
+              />
+            );
+          }
 
-        return (
-          <section key={group.id}>
-            <GroupHeader
-              group={group}
-              count={items.length}
-              collapsed={collapsed}
-              onToggle={() => toggleGroup(projectId, group.id)}
+          if (entry.kind === "quick-add") {
+            return (
+              <IssueQuickAdd
+                key={`quick-add:${entry.stateId}`}
+                projectId={projectId}
+                stateId={entry.stateId}
+                onCreated={onCreated}
+              />
+            );
+          }
+
+          return (
+            <IssueListRow
+              key={entry.issue.id ?? index}
+              issue={entry.issue}
+              states={states}
+              members={members}
+              labels={labels}
+              isSelected={selectedIds.has(entry.issue.id)}
+              properties={properties}
+              canDelete={canDelete}
+              handlers={handlers}
             />
-
-            {!collapsed && items.length > 0 && (
-              <>
-                {items.map((issue) => (
-                  <IssueListRow
-                    key={issue.id}
-                    issue={issue}
-                    states={states}
-                    members={members}
-                    labels={labels}
-                    isSelected={selectedIds.has(issue.id)}
-                    canDelete={canDelete}
-                    handlers={handlers}
-                  />
-                ))}
-
-                {groupBy === "state" && (
-                  <IssueQuickAdd
-                    projectId={projectId}
-                    stateId={group.id}
-                    onCreated={onCreated}
-                  />
-                )}
-              </>
-            )}
-          </section>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

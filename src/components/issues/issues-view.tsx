@@ -18,6 +18,7 @@ import {
   setAssignees,
   setLabels,
   updateIssue,
+  updateIssueOrder,
 } from "@/actions/issues";
 import { BulkActionBar } from "@/components/issues/bulk-action-bar";
 import { FilterBar, type PartialFilters } from "@/components/issues/filter-bar";
@@ -27,10 +28,23 @@ import { IssuePeekOverlay } from "@/components/issues/issue-peek-overlay";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
+import { CalendarLayout } from "@/components/views/calendar-layout";
+import {
+  KanbanLayout,
+  type KanbanMove,
+} from "@/components/views/kanban-layout";
 import { ListLayout } from "@/components/views/list-layout";
+import { SaveViewDialog } from "@/components/views/save-view-dialog";
+import { SpreadsheetLayout } from "@/components/views/spreadsheet-layout";
 import type { IssueLabelRef, IssueListItem } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
 import type { IssueFilters, IssuePriority } from "@/lib/validators/issue";
+import {
+  DEFAULT_DISPLAY_PROPS,
+  type DisplayProps,
+  type IssueLayout,
+} from "@/lib/validators/view";
+import { useProjectViewStore } from "@/stores/project-view-store";
 
 interface IssuesViewProps {
   projectId: string;
@@ -67,10 +81,32 @@ export function IssuesView({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [peekId, setPeekId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [groupBy, setGroupBy] = useState<IssueFilters["groupBy"]>("state");
-  const [filters, setFilters] = useState<PartialFilters>({} as PartialFilters);
+  const [saveViewOpen, setSaveViewOpen] = useState(false);
+  const [quickAddState, setQuickAddState] = useState<string | null>(null);
   /** Anchor for Shift-click range selection. */
   const lastClickedId = useRef<string | null>(null);
+
+  /**
+   * Layout, filters and display properties come from one persisted store keyed
+   * by project, which is what makes switching layouts preserve the filter set:
+   * the four layouts read the same object rather than each holding a copy.
+   */
+  const stored = useProjectViewStore((store) => store.byProject[projectId]);
+  const setStoredLayout = useProjectViewStore((store) => store.setLayout);
+  const setStoredFilters = useProjectViewStore((store) => store.setFilters);
+  const setStoredDisplayProps = useProjectViewStore(
+    (store) => store.setDisplayProps,
+  );
+
+  const layout: IssueLayout = stored?.layout ?? "list";
+  const displayProps: DisplayProps =
+    stored?.displayProps ?? DEFAULT_DISPLAY_PROPS;
+  const groupBy = displayProps.groupBy;
+
+  const filters = useMemo(
+    () => (stored?.filters ?? {}) as PartialFilters,
+    [stored?.filters],
+  );
 
   /**
    * groupBy is deliberately absent from the key. Grouping happens in
@@ -82,8 +118,8 @@ export function IssuesView({
     [projectId, filters],
   );
 
-  const isUnfiltered = useMemo(
-    () => Object.values(filters).every((value) => value === undefined),
+  const hasFilters = useMemo(
+    () => Object.values(filters).some((value) => value !== undefined),
     [filters],
   );
 
@@ -93,7 +129,7 @@ export function IssuesView({
     // The server component already delivered exactly this set, but only for
     // the unfiltered view. Seeding a filtered key with it would show the wrong
     // rows and, worse, count as fresh under staleTime so the fetch never runs.
-    initialData: isUnfiltered ? initialIssues : undefined,
+    initialData: hasFilters ? undefined : initialIssues,
     placeholderData: keepPreviousData,
   });
 
@@ -102,9 +138,19 @@ export function IssuesView({
     router.refresh();
   }, [queryClient, projectId, router]);
 
-  const handleFilterChange = useCallback((next: PartialFilters) => {
-    setFilters((prev: PartialFilters) => ({ ...prev, ...next }));
-  }, []);
+  const handleFilterChange = useCallback(
+    (next: PartialFilters) => {
+      setStoredFilters(projectId, { ...filters, ...next });
+    },
+    [filters, projectId, setStoredFilters],
+  );
+
+  const handleGroupByChange = useCallback(
+    (next: IssueFilters["groupBy"]) => {
+      setStoredDisplayProps(projectId, { ...displayProps, groupBy: next });
+    },
+    [displayProps, projectId, setStoredDisplayProps],
+  );
 
   /**
    * The five-step optimistic contract from docs/03-TRD.md §3.1: cancel any
@@ -299,6 +345,40 @@ export function IssuesView({
     [issues, members, labels, stateOf, mutate, queryClient, queryKey, refresh],
   );
 
+  /**
+   * A kanban drop. The destination state and both neighbours go in one call, so
+   * moving a card across columns is a single write and a single activity row
+   * rather than a state change followed by a reorder.
+   */
+  const handleKanbanMove = useCallback(
+    (move: KanbanMove) => {
+      const target = stateOf(move.stateId);
+      mutate.mutate({
+        ids: [move.issueId],
+        patch: (issue) => ({
+          ...issue,
+          stateId: move.stateId,
+          stateName: target?.name ?? issue.stateName,
+          stateGroup: target?.group ?? issue.stateGroup,
+          stateColor: target?.color ?? issue.stateColor,
+        }),
+        run: () => updateIssueOrder(move),
+      });
+    },
+    [mutate, stateOf],
+  );
+
+  const handleReschedule = useCallback(
+    (issueId: string, targetDate: string) => {
+      mutate.mutate({
+        ids: [issueId],
+        patch: (issue) => ({ ...issue, targetDate }),
+        run: () => updateIssue({ issueId, targetDate }),
+      });
+    },
+    [mutate],
+  );
+
   const selectedIds = [...selected];
 
   function runBulk(
@@ -332,7 +412,12 @@ export function IssuesView({
         filters={filters}
         onChange={handleFilterChange}
         groupBy={groupBy}
-        onGroupByChange={setGroupBy}
+        onGroupByChange={handleGroupByChange}
+        layout={layout}
+        onLayoutChange={(next) => setStoredLayout(projectId, next)}
+        displayProps={displayProps}
+        onDisplayPropsChange={(next) => setStoredDisplayProps(projectId, next)}
+        onSaveView={() => setSaveViewOpen(true)}
       />
 
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-border-subtle px-4">
@@ -352,30 +437,95 @@ export function IssuesView({
       {issues.length === 0 ? (
         <EmptyState
           icon={CircleDot}
-          title="No issues yet"
-          description="Add the first one from a group below, or open the full form for everything at once."
+          title={hasFilters ? "Nothing matches those filters" : "No issues yet"}
+          description={
+            hasFilters
+              ? "Remove a filter, or widen the ones you have."
+              : "Add the first one from a group below, or open the full form for everything at once."
+          }
           action={
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              New issue
-            </Button>
+            hasFilters ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setStoredFilters(projectId, {})}
+              >
+                Clear filters
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                New issue
+              </Button>
+            )
           }
         />
       ) : null}
 
-      <ListLayout
-        projectId={projectId}
-        issues={issues}
-        states={states}
-        members={members}
-        labels={labels}
-        cycles={cycles}
-        modules={modules}
-        groupBy={groupBy}
-        selectedIds={selected}
-        canDelete={canDelete}
-        handlers={handlers}
-        onCreated={refresh}
-      />
+      {issues.length > 0 && layout === "list" && (
+        <ListLayout
+          projectId={projectId}
+          issues={issues}
+          states={states}
+          members={members}
+          labels={labels}
+          cycles={cycles}
+          modules={modules}
+          groupBy={groupBy}
+          properties={displayProps.properties}
+          selectedIds={selected}
+          canDelete={canDelete}
+          handlers={handlers}
+          onCreated={refresh}
+        />
+      )}
+
+      {issues.length > 0 && layout === "kanban" && (
+        <KanbanLayout
+          projectId={projectId}
+          issues={issues}
+          states={states}
+          properties={displayProps.properties}
+          onOpen={(issueId) => setPeekId(issueId)}
+          onMove={handleKanbanMove}
+          onQuickAdd={(stateId) => {
+            setQuickAddState(stateId);
+            setCreateOpen(true);
+          }}
+        />
+      )}
+
+      {issues.length > 0 && layout === "calendar" && (
+        <CalendarLayout
+          issues={issues}
+          onOpen={(issueId) => setPeekId(issueId)}
+          onReschedule={handleReschedule}
+        />
+      )}
+
+      {issues.length > 0 && layout === "spreadsheet" && (
+        <SpreadsheetLayout
+          issues={issues}
+          states={states}
+          members={members}
+          labels={labels}
+          properties={displayProps.properties}
+          orderBy={filters.orderBy ?? "sort_order"}
+          sortDirection={filters.sortDirection ?? "asc"}
+          onSort={(orderBy) =>
+            handleFilterChange({
+              ...filters,
+              orderBy,
+              // A second click on the active column reverses it, which is the
+              // behaviour every table in every tool has.
+              sortDirection:
+                filters.orderBy === orderBy && filters.sortDirection === "asc"
+                  ? "desc"
+                  : "asc",
+            })
+          }
+          handlers={handlers}
+        />
+      )}
 
       <BulkActionBar
         count={selected.size}
@@ -419,9 +569,26 @@ export function IssuesView({
         onCancel={() => setSelected(new Set())}
       />
 
+      <SaveViewDialog
+        open={saveViewOpen}
+        onOpenChange={setSaveViewOpen}
+        projectId={projectId}
+        filters={filters}
+        displayProps={displayProps}
+        layout={layout}
+        onSaved={() => router.refresh()}
+      />
+
       <IssueCreateModal
+        // Keyed so opening it from a different kanban column remounts it with
+        // that column's state preselected rather than the first one.
+        key={quickAddState ?? "default"}
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(next) => {
+          setCreateOpen(next);
+          if (!next) setQuickAddState(null);
+        }}
+        defaultStateId={quickAddState ?? undefined}
         projectId={projectId}
         states={states}
         members={members}

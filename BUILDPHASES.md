@@ -557,29 +557,100 @@ and the bulk bar have never been rendered with real data by a person. Everything
 above is the database and the server actions; the UI is built to spec and
 compiles, and that is a weaker claim.
 
-## Phase 9 — Views & filtering `[~]`
+## Phase 9 — Views & filtering  `[~]` awaiting review
 
-- [ ] Kanban with dnd-kit: cross-column state change, intra-column reorder, optimistic
-- [ ] Calendar with drag-to-reschedule
-- [ ] Spreadsheet with sticky first column, sorting, inline editing
-- [x] `FilterBar`: filters (state, priority, assignee, label, cycle, module, target date), group-by (state/priority/assignee/label/cycle/module), sort (7 fields × asc/desc)
-- [x] List layout dynamic grouping driven by the group-by control
-- [ ] Per-user layout and filter persistence, plus the `views` table for saved views
-- [ ] Saved Views CRUD with private/public access
-- [ ] Virtualisation for list and spreadsheet above 100 rows
+- [x] `FilterBar`: layout switcher, filters (state, priority, assignee, label, cycle, module, target date), group-by, display properties, sort, search, removable filter chips
+- [x] List layout with dynamic grouping and working collapse
+- [x] Kanban with dnd-kit: cross-column state change, intra-column reorder, optimistic, collapsible columns, 50-card pages
+- [x] Calendar with drag-to-reschedule
+- [x] Spreadsheet with sticky first column, sortable headers, inline editing
+- [x] Per-user layout, filter and display persistence in localStorage
+- [x] Saved Views CRUD with private/public access, backed by the `views` table
+- [x] Virtualisation for list and spreadsheet above 100 rows
+- [x] `supabase/tests/views.sql` — 9 assertions on the view access matrix
+- [ ] Driven through the UI by a human
 
-**DoD:** all four layouts render the same filtered set; switching layouts preserves filters.
+**DoD:** all four layouts render the same filtered set; switching layouts preserves filters. Met — see below.
+
+### How switching layouts preserves filters
+
+One store, `src/stores/project-view-store.ts`, holds layout, filters and display
+properties keyed by project id. The four layout components take rows and render
+them; none of them owns a filter. Switching layouts therefore changes which
+component renders and nothing else, and the same is true of a saved view: it is
+written into that store and the issues screen is navigated to. There is no
+second code path for "viewing a view".
+
+That the filter set survives a reload falls out of the same decision — the store
+persists — which is what the phase asks for by "per-user layout and filter
+persistence".
+
+### The UI glitch this phase found
+
+`FilterBar` drew its active-filter count and its checkbox ticks in
+`bg-accent/20 text-accent` and `border-accent bg-accent`. Phase 2 remapped
+`--color-accent` to `--bg-70`, shadcn's raised hover surface, because shadcn
+reserves `bg-accent` for exactly that; the brand blue is exposed as `bg-brand`.
+So the badge was grey on grey and a ticked checkbox looked identical to an
+unticked one. Now `brand`.
+
+### Notes from this phase
+
+- Virtualisation is hand-written (`src/hooks/use-virtual-rows.ts`) because the
+  dependency set is closed and a fixed row height makes windowing arithmetic
+  rather than measurement. It takes either one height or an array of them: the
+  spreadsheet is uniform 36px rows, but the grouped list interleaves 36px
+  headers with 38px rows, so that path builds prefix sums and binary-searches
+  them. Below 100 rows it disables itself and reports the full range — two
+  hundred DOM nodes cost less than the scroll handler that would avoid them, and
+  a list that windows at twenty rows is a list where Cmd+F finds nothing.
+- The list now owns its scroll container rather than scrolling the page. That is
+  what windowing needs, and it also makes the sticky group headers stick within
+  the list, which is what the spec asks for.
+- `groupBy` is presentational: `buildGroups` runs on rows already in hand and
+  the server query ignores the field. It is therefore in the display props, not
+  in the query key.
+- The kanban drop sends the destination state and both neighbours in one call,
+  so a cross-column move is a single write and a single activity row.
+- Calendar drops set `target_date` only. Issues without one do not appear, and
+  the bar says how many are hidden — a calendar that invents a date for an
+  undated issue is one you cannot trust.
+- Duplicating a view always produces a private view owned by whoever duplicated
+  it. Copying a public view is not a way to publish under someone else's name,
+  and someone else's private view is not visible so cannot be copied at all.
+- Editing a view is the owner's alone; deleting it is the owner's or a project
+  manager's. A manager can remove a view they object to but cannot rewrite what
+  it means and leave another person's name on it.
+- `savedFilterSchema` omits `projectId`. A stored filter blob that could name
+  its own project would be a way to read another project's issues through a view
+  you own.
+- Every assertion block in `views.sql` commits rather than rolls back, for the
+  reason phase 4 recorded: the verdict lives in a temp table written by the same
+  transaction, so a rollback discards the answer along with the attempt and the
+  test reads as missing rather than failing.
 
 ### Verified
 
-- `FilterBar` component: multi-select popovers for each filter dimension, group-by and sort popovers, search input, clear-all, active filter count badge
-- `ListLayout` `buildGroups()` handles all six group-by modes including "Unassigned"/"No label"/"No cycle"/"No module" buckets
-- Filter state flows `FilterBar → IssuesView → listIssues` action; query conditions added for `moduleIds`, `stateGroups`, `createdByIds`, `targetDate` (4 ops), `assigneeIds`/`labelIds` via EXISTS subqueries
-- ORDER BY maps the seven `orderBy` fields to columns; typecheck and lint both clean
+- Typecheck, lint and production build clean. No raw hex outside the vendored
+  shadcn primitives; no `bg-accent`/`text-accent` outside them either.
+- View suite 9 green, covering: the owner reads their own private view; another
+  project member cannot; that member does read the public one; a member of
+  another team reads neither; a non-owner can neither edit nor delete a public
+  view; a project manager can delete a view they do not own; a member of another
+  team cannot create a view in the project; and nobody can create a view owned
+  by someone else.
+- RLS 36, auth 11, project 9, sanitiser 35 — all unaffected and green.
+- Issues route first load 242 kB with all four layouts and dnd-kit, against
+  335 kB before the audit with only the list.
 
 ### Not verified
 
-Kanban, calendar, spreadsheet, virtualization, saved views, and per-user persistence are still unstarted. The list view filters and groups but the other three layouts remain to be built.
+Still nobody signed in. The drag interactions in particular — kanban reorder,
+kanban cross-column, calendar reschedule — are the kind of thing that compiles
+and typechecks and is still wrong in the hand. Column collapse, the "+N more"
+day popover, spreadsheet horizontal scroll under a sticky column, and the
+windowing boundary at a hundred rows have all been built to spec and none has
+been scrolled by a person.
 
 ---
 
