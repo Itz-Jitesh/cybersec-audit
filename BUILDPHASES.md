@@ -583,6 +583,64 @@ Kanban, calendar, spreadsheet, virtualization, saved views, and per-user persist
 
 ---
 
+## Audit — bugs and performance, after phase 9
+
+Found by reading the whole tree rather than by driving it, since nobody has
+signed in yet. Fixed in one pass; commit `976e732`.
+
+### Correctness
+
+1. **Optimistic updates never applied.** The list rendered
+   `["issues", projectId, groupBy, filters]`, every mutation read and wrote
+   `["issues", projectId]`. The patch landed on a cache entry nobody rendered,
+   so each chip edit waited on the server round trip and the refetch.
+2. **Filters were dead for thirty seconds.** `groupBy` was in the query key
+   although the server query ignores it, and `initialData` seeded every new key
+   with the unfiltered rows — which counts as fresh under `staleTime`, so the
+   fetch never ran.
+3. **Group collapse did nothing.** `GroupHeader` computed `collapsed` and
+   `ListLayout` never used it. The chevron rotated; the rows stayed.
+4. **The description editor wrote on every parent render.** The flush effect
+   depended on `onAutosave`, passed as an inline arrow, so its cleanup ran on
+   every render — cancelling the debounce and firing a write. The timer handle
+   was never nulled, so every later render fired another.
+
+### Performance
+
+5. **`postgres(..., { max: 1 })`** serialised every query in the process. The
+   issues page issues eight reads in `Promise.all`; they ran one at a time.
+   Now 10, with idle and connect timeouts.
+6. **No request-level memoisation.** `getSession`, `getCurrentUser` and the
+   four permission predicates each re-ran per call site — a Supabase auth round
+   trip and a join for the layout and again for the page, plus one
+   `isWorkspaceAdmin` per team in the layout's `canCreateProject` loop. All now
+   wrapped in React `cache()`.
+7. **Field edits revalidated the issues route**, so Next re-rendered the whole
+   page server-side and streamed it inside the action response — for a change
+   the browser was already showing. Split into `revalidateProject` (structural)
+   and `revalidateAggregates` (`/home`, `/my-issues` only).
+8. **The list route shipped the editor.** `IssueDetail` and `RichEditor` are
+   now dynamic. First load 335 kB to 195 kB.
+9. **Barrel imports.** `radix-ui` is imported from 22 files; without
+   `optimizePackageImports` the whole primitive set compiles on every dev edit.
+   Added, along with `lucide-react` and `date-fns`. `pnpm dev` runs Turbopack.
+10. **Render fan-out.** `IssueListRow` memoised, its handler bag memoised,
+    `buildGroups` memoised, and the collapse store read through selectors
+    rather than by subscribing to the whole store.
+
+### Known, not changed
+
+- **Middleware costs two round trips on every request** — `auth.getUser()`
+  against Supabase plus the `workspace_members` lookup — including every
+  client-side navigation and every server action. It is the remaining floor on
+  navigation latency. Reducing it means trusting something cached, which is an
+  authorization decision, not a performance one.
+- **No virtualisation.** Two hundred rows each mount five Radix dropdown roots.
+  It is a phase 9 item and is still open.
+- **`DATABASE_POOL_URL` is still unset**, so runtime queries use the session
+  pooler on 5432, capped at fifteen clients.
+- The hand-rolled sanitiser has not yet been swapped for a vetted library.
+
 ## Phase 10 — Cycles, modules, realtime, search `[ ]`
 
 - [ ] Cycle CRUD, assignment, detail with burndown, completion and transfer flow
