@@ -1,7 +1,8 @@
 "use client";
 
 import { Plus, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { CommandPalette } from "@/components/layout/command-palette";
@@ -33,8 +34,19 @@ export function Header({
   unreadCount,
   signOutAction,
 }: HeaderProps) {
-  // The palette itself is phase 10; this is the shell it will mount into.
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  /**
+   * "New issue" needs a project. The header outlives any single route, so the
+   * project is read from the path, and the button is hidden where there is no
+   * project to create an issue in rather than opening a dead dialog.
+   */
+  const projectId = useMemo(
+    () => pathname.match(/^\/projects\/([0-9a-f-]{36})/)?.[1] ?? null,
+    [pathname],
+  );
 
   // Cmd/Ctrl+K opens the palette from anywhere in the app shell.
   useEffect(() => {
@@ -67,12 +79,20 @@ export function Header({
         <Kbd keys={["⌘", "K"]} />
       </button>
 
-      <Button size="sm" className="gap-1.5">
-        <Plus size={14} strokeWidth={1.5} />
-        New issue
-      </Button>
+      {projectId && (
+        <Button
+          size="sm"
+          className="gap-1.5"
+          onClick={() =>
+            router.push(`/projects/${projectId}/issues?create=1`)
+          }
+        >
+          <Plus size={14} strokeWidth={1.5} />
+          New issue
+        </Button>
+      )}
 
-      <NotificationBell user={user} unreadCount={unreadCount} />
+      <NotificationBell unreadCount={unreadCount} />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild aria-label="Account menu">
@@ -87,9 +107,6 @@ export function Header({
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <a href="/settings/profile">Profile settings</a>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
             <a href="/mfa">Two-factor authentication</a>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -103,7 +120,6 @@ export function Header({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Phase 10 command palette — opens on ⌘K, wired by the listener above. */}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <ShortcutCheatSheet />
     </header>

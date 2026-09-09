@@ -166,6 +166,26 @@ export async function canManageProject(
   return teamId !== null && isTeamLead(userId, teamId);
 }
 
+/**
+ * Whether this user leads at least one team.
+ *
+ * The app shell needs this to decide whether to offer "create project", and
+ * asking isTeamLead once per team cost one query per team on every page load.
+ * One row is enough to answer it. createProject still re-checks the specific
+ * team on submit, so this is a UI affordance, never the authorization.
+ */
+export const leadsAnyTeam = cache(async (userId: string): Promise<boolean> => {
+  if (await isWorkspaceAdmin(userId)) {
+    return true;
+  }
+  const rows = await db
+    .select({ id: teamMembers.id })
+    .from(teamMembers)
+    .where(and(eq(teamMembers.userId, userId), eq(teamMembers.role, "lead")))
+    .limit(1);
+  return rows.length > 0;
+});
+
 /** Scope guards beyond the five shared helpers, mirroring their policies. */
 export type Ability =
   /** Any active member: the baseline for reading workspace content. */

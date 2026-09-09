@@ -12,6 +12,7 @@ import {
   ok,
 } from "@/actions/result";
 import { db } from "@/db";
+import { searchIssuesInProject } from "@/db/queries/issues";
 import { issues, moduleIssues, modules, states } from "@/db/schema";
 import { assertCan } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -19,6 +20,7 @@ import {
   assignModuleIssuesSchema,
   createModuleSchema,
   moduleIdSchema,
+  moduleIssueSearchSchema,
   removeModuleIssueSchema,
   updateModuleSchema,
 } from "@/lib/validators/module";
@@ -258,3 +260,30 @@ export async function getModuleStateDistribution(
   });
 }
 
+
+/**
+ * Candidate issues for the "add issues" picker on a module.
+ *
+ * The picker runs against the module's own project, which is resolved from the
+ * module id here rather than trusted from the client — otherwise the projectId
+ * would be a parameter a caller could point at someone else's project.
+ */
+export async function searchModuleCandidateIssues(
+  input: unknown,
+): Promise<
+  ActionResult<Awaited<ReturnType<typeof searchIssuesInProject>>>
+> {
+  return guarded("searchModuleCandidateIssues", async () => {
+    const parsed = moduleIssueSearchSchema.safeParse(input);
+    if (!parsed.success) return invalid(parsed.error);
+
+    const projectId = await projectOfModuleRow(parsed.data.moduleId);
+    if (!projectId) return fail("That module no longer exists.", "NOT_FOUND");
+
+    const user = await getCurrentUser();
+    const guard = await assertCan(user, { kind: "project.read", projectId });
+    if (!guard.ok) return denied(guard);
+
+    return ok(await searchIssuesInProject(projectId, parsed.data.query));
+  });
+}

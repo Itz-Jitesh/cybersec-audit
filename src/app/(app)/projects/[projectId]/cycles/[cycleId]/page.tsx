@@ -97,7 +97,13 @@ export default async function CycleDetailPage({
   const user = await requireUser();
   const cycle = await getCycle(cycleId);
   if (!cycle) notFound();
-  await assertCan(user, { kind: "project.read", projectId: cycle.projectId });
+  // Same as the cycle list: the check was awaited and its result thrown away,
+  // which let any signed-in member open any project's burndown by id.
+  const readable = await assertCan(user, {
+    kind: "project.read",
+    projectId: cycle.projectId,
+  });
+  if (!readable.ok) notFound();
 
   const [snapshots, incomplete, transferTargets, canManage] = await Promise.all([
     getCycleSnapshots(cycleId),

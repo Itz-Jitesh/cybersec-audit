@@ -1,9 +1,20 @@
 "use client";
 
-import { Box, CalendarDays, FileText } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import {
+  Bell,
+  Box,
+  CalendarDays,
+  FileText,
+  Home,
+  LogOut,
+  PanelLeft,
+  Plus,
+  UserCircle,
+} from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
+import { signOut } from "@/actions/auth";
 import { searchPaletteAction } from "@/actions/search";
 import {
   CommandDialog,
@@ -11,7 +22,7 @@ import {
   CommandInput,
   CommandItem,
 } from "@/components/ui/command";
-import type { CurrentUser } from "@/lib/auth/session";
+import { useSidebarStore } from "@/stores/sidebar-store";
 
 interface PaletteResult {
   issues: {
@@ -47,17 +58,27 @@ export function CommandPalette({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  _user?: CurrentUser;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const toggleCollapsed = useSidebarStore((store) => store.toggleCollapsed);
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<PaletteResult>(EMPTY);
   const [isPending, startTransition] = useTransition();
 
-  // Debounced server search. 120ms matches the filter bar's debounce.
+  /**
+   * Typing ">" switches to command-only mode, per docs/06-UX-LAYOUT-SPEC.md
+   * §13: the entity search stops running and only the action list is offered,
+   * filtered by whatever follows the ">".
+   */
+  const commandMode = query.startsWith(">");
+  const commandTerm = commandMode ? query.slice(1).trim().toLowerCase() : "";
+
+  // Debounced server search, 200ms as docs/06-UX-LAYOUT-SPEC.md §13 specifies.
+  // Command mode never queries — there is nothing on the server to ask.
   useEffect(() => {
     const term = query.trim();
-    if (!term) {
+    if (!term || term.startsWith(">")) {
       setResult(EMPTY);
       return;
     }
@@ -66,7 +87,7 @@ export function CommandPalette({
         const parsed = await searchPaletteAction({ query: term });
         if (parsed.ok) setResult(parsed.data as PaletteResult);
       });
-    }, 120);
+    }, 200);
     return () => clearTimeout(timer);
   }, [query]);
 
@@ -89,23 +110,85 @@ export function CommandPalette({
     result.modules.length +
     result.pages.length;
 
+  /**
+   * The project the palette was opened from, so "Create issue" has somewhere
+   * to go. Read from the path rather than passed down, because the palette
+   * mounts once in the header and outlives any single route.
+   */
+  const activeProjectId = useMemo(
+    () => pathname.match(/^\/projects\/([0-9a-f-]{36})/)?.[1] ?? null,
+    [pathname],
+  );
+
+  const actions = useMemo(() => {
+    const all = [
+      ...(activeProjectId
+        ? [
+            {
+              id: "create-issue",
+              label: "Create issue",
+              icon: Plus,
+              run: () =>
+                go(`/projects/${activeProjectId}/issues?create=1`),
+            },
+          ]
+        : []),
+      { id: "go-home", label: "Go to home", icon: Home, run: () => go("/home") },
+      {
+        id: "go-my-issues",
+        label: "Go to my issues",
+        icon: UserCircle,
+        run: () => go("/my-issues"),
+      },
+      {
+        id: "go-notifications",
+        label: "Go to notifications",
+        icon: Bell,
+        run: () => go("/notifications"),
+      },
+      {
+        id: "toggle-sidebar",
+        label: "Toggle sidebar",
+        icon: PanelLeft,
+        run: () => {
+          onOpenChange(false);
+          toggleCollapsed();
+        },
+      },
+      {
+        id: "sign-out",
+        label: "Sign out",
+        icon: LogOut,
+        run: () => {
+          onOpenChange(false);
+          void signOut();
+        },
+      },
+    ];
+    return commandMode
+      ? all.filter((action) => action.label.toLowerCase().includes(commandTerm))
+      : all;
+    // `go` is stable enough for this list: it only closes and pushes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId, commandMode, commandTerm, onOpenChange, toggleCollapsed]);
+
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput
         aria-label="Search the workspace"
-        placeholder="Search issues, cycles, modules and pages…"
+        placeholder="Search issues, cycles, modules and pages — or type > for commands"
         value={query}
         onValueChange={setQuery}
       />
       {isPending && query.trim() ? (
         <p className="px-3 py-2 text-xs text-text-400">Searching…</p>
       ) : null}
-      {query.trim() && !isPending && total === 0 ? (
+      {!commandMode && query.trim() && !isPending && total === 0 ? (
         <p className="px-3 py-6 text-center text-xs text-text-400">
           No matches for “{query.trim()}”
         </p>
       ) : null}
-      {result.issues.length > 0 && (
+      {!commandMode && result.issues.length > 0 && (
         <CommandGroup heading="Issues">
           {result.issues.map((issue) => (
             <CommandItem
@@ -126,16 +209,14 @@ export function CommandPalette({
           ))}
         </CommandGroup>
       )}
-      {result.cycles.length > 0 && (
+      {!commandMode && result.cycles.length > 0 && (
         <CommandGroup heading="Cycles">
           {result.cycles.map((cycle) => (
             <CommandItem
               key={cycle.id}
               value={cycle.name}
               onSelect={() =>
-                // Cycle detail pages arrive with the cycle UI; the list page
-                // is the meaningful destination until then.
-                go(`/projects/${cycle.projectId}/cycles`)
+                go(`/projects/${cycle.projectId}/cycles/${cycle.id}`)
               }
             >
               <CalendarDays size={13} strokeWidth={1.5} />
@@ -146,13 +227,15 @@ export function CommandPalette({
           ))}
         </CommandGroup>
       )}
-      {result.modules.length > 0 && (
+      {!commandMode && result.modules.length > 0 && (
         <CommandGroup heading="Modules">
           {result.modules.map((module) => (
             <CommandItem
               key={module.id}
               value={module.name}
-              onSelect={() => go(`/projects/${module.projectId}/modules`)}
+              onSelect={() =>
+                go(`/projects/${module.projectId}/modules/${module.id}`)
+              }
             >
               <Box size={13} strokeWidth={1.5} />
               <span className="truncate text-xs text-text-100">
@@ -162,7 +245,7 @@ export function CommandPalette({
           ))}
         </CommandGroup>
       )}
-      {result.pages.length > 0 && (
+      {!commandMode && result.pages.length > 0 && (
         <CommandGroup heading="Pages">
           {result.pages.map((page) => (
             <CommandItem
@@ -173,6 +256,22 @@ export function CommandPalette({
               <FileText size={13} strokeWidth={1.5} />
               <span className="truncate text-xs text-text-100">
                 {page.title}
+              </span>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      )}
+      {actions.length > 0 && (
+        <CommandGroup heading="Actions">
+          {actions.map((action) => (
+            <CommandItem
+              key={action.id}
+              value={`> ${action.label}`}
+              onSelect={action.run}
+            >
+              <action.icon size={13} strokeWidth={1.5} />
+              <span className="truncate text-xs text-text-100">
+                {action.label}
               </span>
             </CommandItem>
           ))}

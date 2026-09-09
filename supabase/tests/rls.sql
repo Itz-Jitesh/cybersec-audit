@@ -364,7 +364,10 @@ select set_config('request.jwt.claims', '{"sub":"90000000-0000-4000-8000-0000000
 do $$
 declare n int;
 begin
-  select count(*) into n from projects;
+  -- Scoped to this suite's two fixture projects. Counting every row made the
+  -- assertion fail as soon as a real project existed in the database, which
+  -- says nothing about whether the policy lets an admin cross team boundaries.
+  select count(*) into n from projects where identifier in ('RLS', 'RLSD');
   perform pg_temp.rls_record('admin reads every project',
     n = 2, 'saw ' || n || ' rows, expected 2');
 
@@ -412,7 +415,7 @@ select set_config('request.jwt.claims', '{"sub":"90000000-0000-4000-8000-0000000
 do $$
 declare n int;
 begin
-  select count(*) into n from projects;
+  select count(*) into n from projects where identifier in ('RLS', 'RLSD');
   perform pg_temp.rls_record('president reads every project',
     n = 2, 'saw ' || n || ' rows, expected 2');
 

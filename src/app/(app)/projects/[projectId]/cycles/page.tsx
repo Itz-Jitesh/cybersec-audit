@@ -1,5 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { CreateCycleDialog } from "@/components/cycles/create-cycle-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -14,7 +15,13 @@ export default async function CyclesPage({
 }) {
   const { projectId } = await params;
   const user = await requireUser();
-  await assertCan(user, { kind: "project.read", projectId });
+
+  // Reads go through Drizzle, which bypasses RLS, so the result of this check
+  // is the only thing standing between a signed-in member and another team's
+  // cycles. It was previously awaited and discarded.
+  const readable = await assertCan(user, { kind: "project.read", projectId });
+  if (!readable.ok) notFound();
+
   const { active, upcoming, completed } = await getProjectCycles(projectId);
   const total = active.length + upcoming.length + completed.length;
 

@@ -13,18 +13,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { NotificationRow } from "@/db/queries/notifications";
-import type { CurrentUser } from "@/lib/auth/session";
 
 /**
  * The inbox popover behind the header bell. Rows load on first open rather
  * than on every shell render, so the layout stays one query lighter.
  */
-export function NotificationBell({
-  unreadCount,
-}: {
-  user: CurrentUser;
-  unreadCount: number;
-}) {
+export function NotificationBell({ unreadCount }: { unreadCount: number }) {
   const [rows, setRows] = useState<NotificationRow[] | null>(null);
   const [pending, startTransition] = useTransition();
 

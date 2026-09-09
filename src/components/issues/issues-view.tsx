@@ -7,7 +7,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { CircleDot, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -78,6 +78,8 @@ export function IssuesView({
   fetchIssues,
 }: IssuesViewProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -110,6 +112,17 @@ export function IssuesView({
   // One channel per open project: issues moved or created in another browser
   // patch the query cache here within a second, with no refetch.
   useProjectRealtime({ projectId, states });
+
+  /**
+   * `?create=1` opens the new-issue modal. The command palette lives in the
+   * header and has no handle on this component, so it asks through the URL,
+   * which is then stripped so a refresh does not reopen the modal.
+   */
+  useEffect(() => {
+    if (searchParams.get("create") !== "1") return;
+    setCreateOpen(true);
+    router.replace(pathname, { scroll: false });
+  }, [searchParams, router, pathname]);
 
   // Before rehydration there is no stored layout or filter set, so the list
   // renders — exactly what the server delivered.

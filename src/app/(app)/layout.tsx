@@ -4,7 +4,7 @@ import { Header } from "@/components/layout/header";
 import { getUnreadNotificationCount } from "@/db/queries/home";
 import { getNavigationTree } from "@/db/queries/navigation";
 import { getWorkspaceMembers } from "@/db/queries/project";
-import { assertCan } from "@/lib/auth/permissions";
+import { leadsAnyTeam } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
 
 const ADMIN_ROLES = new Set(["admin", "president", "co_president"]);
@@ -20,21 +20,17 @@ export default async function AppLayout({
   const user = await requireUser();
   const isAdmin = ADMIN_ROLES.has(user.role);
 
-  const [tree, unreadCount, workspaceMembers] = await Promise.all([
-    getNavigationTree(user.id, isAdmin),
-    getUnreadNotificationCount(user.id),
-    getWorkspaceMembers(),
-  ]);
-
   // A workspace admin can create a project anywhere; a team lead can create one
-  // in a team they lead. Anyone who leads at least one visible team gets the
-  // control, and createProject re-checks the specific team on submit.
-  const leadsSomeTeam = await Promise.all(
-    tree.teams.map((team) =>
-      assertCan(user, { kind: "team.manage", teamId: team.id }),
-    ),
-  );
-  const canCreateProject = leadsSomeTeam.some((result) => result.ok);
+  // in a team they lead. This was one assertCan per team, so one query per
+  // team on every page in the app; leadsAnyTeam answers it with a single row.
+  // createProject re-checks the specific team on submit either way.
+  const [tree, unreadCount, workspaceMembers, canCreateProject] =
+    await Promise.all([
+      getNavigationTree(user.id, isAdmin),
+      getUnreadNotificationCount(user.id),
+      getWorkspaceMembers(),
+      leadsAnyTeam(user.id),
+    ]);
 
   return (
     <div className="flex h-dvh overflow-hidden">

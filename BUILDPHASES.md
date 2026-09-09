@@ -712,18 +712,77 @@ signed in yet. Fixed in one pass; commit `976e732`.
   pooler on 5432, capped at fifteen clients.
 - The hand-rolled sanitiser has not yet been swapped for a vetted library.
 
-## Phase 10 — Cycles, modules, realtime, search `[ ]`
+## Phase 10 — Cycles, modules, realtime, search  `[~]` awaiting review
 
-- [ ] Cycle CRUD, assignment, detail with burndown, completion and transfer flow
-- [ ] `cycle_snapshots` via Vercel Cron
-- [ ] Module CRUD, issue assignment, progress
-- [ ] Supabase Realtime: per-project channel, surgical cache patching
-- [ ] Notification fan-out trigger, inbox popover, `/notifications`
-- [ ] `Cmd+K` palette with full-text issue search and command mode
-- [ ] Keyboard shortcuts from `docs/06-UX-LAYOUT-SPEC.md` §15 plus the `?` cheat sheet
+- [x] Cycle CRUD, assignment, detail with burndown, completion and transfer flow
+- [x] `cycle_snapshots` via Vercel Cron
+- [x] Module CRUD, issue assignment, progress
+- [x] Supabase Realtime: per-project channel, surgical cache patching
+- [x] Notification fan-out trigger, inbox popover, `/notifications`
+- [x] `Cmd+K` palette with full-text issue search and command mode
+- [x] Keyboard shortcuts from `docs/06-UX-LAYOUT-SPEC.md` §15 plus the `?` cheat sheet
+
+### Audit after phase 10
+
+The phase-10 commit was reported done while three of its items were only half
+built, so everything above was re-checked against the docs rather than trusted.
+What that found, and what was done about it:
+
+**Authorization — two real holes, both fixed.**
+
+- `projects/[projectId]/cycles/page.tsx` and `cycles/[cycleId]/page.tsx` both
+  called `assertCan(project.read)` and then discarded the result. Reads go
+  through Drizzle, which bypasses RLS, so that check was the only thing in the
+  way: any signed-in member could open any team's cycle list and burndown by
+  id. Both now `notFound()` when the check fails.
+- The `module_issues` policies checked membership of the *issue's* project and
+  never looked at the module's. Since anyone may create an issue in their own
+  project, a member of one team could attach their issue to any module in the
+  workspace. `supabase/migrations/0008_module_issue_project_guard.sql` adds a
+  `module_project_id` helper and rewrites all four policies to require both
+  projects and to require that they are the same project. Found by a new
+  assertion, not by reading.
+
+**Completeness — the modules UI did not exist.** `src/actions/modules.ts` and
+`src/db/queries/modules.ts` were complete, but `/projects/[id]/modules` was
+still the phase-6 placeholder, so none of it was reachable. Built: the card
+grid list (`docs/06-UX-LAYOUT-SPEC.md` §10), the detail page with description,
+progress ring, status control and delete, and the attach/detach issue panel
+with a debounced picker.
+
+**Completeness — the palette had no command mode.** `>` now switches the
+palette to actions only (create issue, go to home / my issues / notifications,
+toggle sidebar, sign out), per `docs/06-UX-LAYOUT-SPEC.md` §13, and the search
+debounce was corrected from 120ms to the 200ms the spec sets. Cycle and module
+results now open their detail pages, which exist as of this phase.
+
+**Dead controls.** The header's "New issue" button had no handler at all, and
+"Profile settings" pointed at `/settings/profile`, which does not exist. The
+button now opens the create modal for the project in the current path (and is
+hidden where there is no project); the dead menu item was removed.
+
+**Performance.** The app shell ran one `assertCan(team.manage)` per team on
+every page in the app — six queries for the current team list — to decide
+whether to show one button. `leadsAnyTeam` answers it with a single row.
+
+**Test brittleness.** Two RLS assertions counted every project in the database
+and expected exactly two, so they began failing the moment a real project
+existed. They are now scoped to the suite's own fixtures.
+
+### Not verified
+
+- No screen has been driven by a human or a browser driver. Everything below
+  the DoD line is asserted at the database and the type level only.
+- The realtime DoD ("a drag in one browser appears in a second in a second")
+  needs two browsers and has not been observed.
+- `/my-issues` and `/drafts` are still placeholders. Neither appears in any
+  phase checklist in `docs/07-BUILD-PHASES.md`, though `/my-issues` has a
+  layout in `docs/06-UX-LAYOUT-SPEC.md` §6. Flagged rather than built, since
+  building it belongs to a phase that has to be decided.
+- `/admin/invites` is linked from the sidebar and does not exist yet; phase 11
+  builds it.
 
 **DoD:** a drag in one browser appears in a second within a second; a mention produces a notification.
-
 ---
 
 ## Phase 11 — Admin, pages, analytics `[ ]`

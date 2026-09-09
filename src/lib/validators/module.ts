@@ -63,3 +63,8 @@ export const removeModuleIssueSchema = z.object({
 });
 
 export { PALETTE };
+
+export const moduleIssueSearchSchema = z.object({
+  moduleId: z.string().uuid(),
+  query: z.string().trim().max(120).default(""),
+});
