@@ -63,8 +63,16 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const [createOpen, setCreateOpen] = useState(false);
-  const { isCollapsed, toggleCollapsed, isExpanded, toggleSection } =
-    useSidebarStore();
+  const hydrated = useSidebarStore((state) => state.hasHydrated);
+  // Hydration stays false on the server, so the defaults below (expanded,
+  // unfolded) are exactly what the server rendered. Once localStorage merges,
+  // these flip to the stored values without touching the server HTML.
+  const isCollapsed = useSidebarStore((state) =>
+    hydrated ? state.isCollapsed : false,
+  );
+  const toggleCollapsed = useSidebarStore((state) => state.toggleCollapsed);
+  const toggleSection = useSidebarStore((state) => state.toggleSection);
+  const isExpanded = useSidebarStore((state) => state.isExpanded);
 
   // Cmd+\ matches the shortcut in docs/06-UX-LAYOUT-SPEC.md §1.
   useEffect(() => {
@@ -78,7 +86,14 @@ export function AppSidebar({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [toggleCollapsed]);
 
-  const favoritesOpen = isExpanded("favorites");
+  // skipHydration means the stores never merge automatically — pull the
+  // localStorage snapshot in after the first paint so the server HTML and
+  // the first client render stay identical.
+  useEffect(() => {
+    void useSidebarStore.persist.rehydrate();
+  }, []);
+
+  const favoritesOpen = hydrated && isExpanded("favorites");
 
   return (
     <aside

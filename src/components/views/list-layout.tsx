@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 import {
   IssueListRow,
@@ -279,8 +279,11 @@ export function ListLayout({
   const toggleGroup = useIssueViewStore((state) => state.toggleGroup);
   // A selector rather than the whole store: without it every header re-renders
   // whenever any group anywhere is folded.
-  const collapsedIds = useIssueViewStore(
-    (state) => state.collapsed[projectId] ?? EMPTY_COLLAPSED,
+  const hydrated = useIssueViewStore((state) => state.hasHydrated);
+  const collapsedIds = useIssueViewStore((state) =>
+    // Open on the first pass, like the server. The stored folds merge in via
+    // rehydrate() below and only then take effect.
+    hydrated ? (state.collapsed[projectId] ?? EMPTY_COLLAPSED) : EMPTY_COLLAPSED,
   );
 
   /**
@@ -323,6 +326,12 @@ export function ListLayout({
     count: entries.length,
     rowHeight: heights,
   });
+
+  // The store is skipHydration (see the sidebar fix): merge localStorage after
+  // the first paint so the server HTML and the first client render match.
+  useEffect(() => {
+    void useIssueViewStore.persist.rehydrate();
+  }, []);
 
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">

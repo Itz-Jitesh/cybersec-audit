@@ -19,6 +19,12 @@ export interface ProjectViewState {
 interface ProjectViewStore {
   /** Keyed by project id, so two projects never share a layout or a filter. */
   byProject: Record<string, ProjectViewState>;
+  /**
+   * False until the persisted snapshot merges. The issue screen falls back to
+   * list/default filters while false, matching the server HTML.
+   */
+  hasHydrated: boolean;
+  setHydratedTrue: () => void;
   setLayout: (projectId: string, layout: IssueLayout) => void;
   setFilters: (projectId: string, filters: Partial<SavedFilters>) => void;
   setDisplayProps: (projectId: string, displayProps: DisplayProps) => void;
@@ -43,6 +49,8 @@ export const useProjectViewStore = create<ProjectViewStore>()(
   persist(
     (set) => ({
       byProject: {},
+      hasHydrated: false,
+      setHydratedTrue: () => set({ hasHydrated: true }),
 
       setLayout: (projectId, layout) =>
         set((store) => ({
@@ -89,6 +97,12 @@ export const useProjectViewStore = create<ProjectViewStore>()(
           return { byProject: next };
         }),
     }),
-    { name: "project-view-state", version: 1 },
+    { name: "project-view-state",
+      version: 1,
+      skipHydration: true,
+      onRehydrateStorage: () => (state) => {
+        state?.setHydratedTrue?.();
+      },
+    },
   ),
 );

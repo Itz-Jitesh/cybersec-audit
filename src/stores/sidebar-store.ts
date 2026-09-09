@@ -7,6 +7,13 @@ interface SidebarState {
   isCollapsed: boolean;
   /** Keyed by section id: team ids, project ids, and the literal "favorites". */
   expanded: Record<string, boolean>;
+  /**
+   * False on the server and on the first client render, true once the
+   * localStorage snapshot has been merged. Components must render defaults
+   * while false or the server HTML and the first client render diverge.
+   */
+  hasHydrated: boolean;
+  setHydratedTrue: () => void;
   toggleCollapsed: () => void;
   setCollapsed: (collapsed: boolean) => void;
   toggleSection: (id: string) => void;
@@ -24,6 +31,8 @@ export const useSidebarStore = create<SidebarState>()(
     (set, get) => ({
       isCollapsed: false,
       expanded: {},
+      hasHydrated: false,
+      setHydratedTrue: () => set({ hasHydrated: true }),
       toggleCollapsed: () =>
         set((state) => ({ isCollapsed: !state.isCollapsed })),
       setCollapsed: (isCollapsed) => set({ isCollapsed }),
@@ -33,6 +42,15 @@ export const useSidebarStore = create<SidebarState>()(
         })),
       isExpanded: (id, fallback = true) => get().expanded[id] ?? fallback,
     }),
-    { name: "sidebar-state" },
+    {
+      name: "sidebar-state",
+      // Render the server defaults until the localStorage snapshot has merged.
+      // Otherwise the first client render reads stored collapsed/expanded
+      // values the server never saw, and React throws a hydration mismatch.
+      skipHydration: true,
+      onRehydrateStorage: () => (state) => {
+        state?.setHydratedTrue?.();
+      },
+    },
   ),
 );

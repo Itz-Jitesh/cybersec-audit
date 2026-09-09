@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { CircleDot, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -92,20 +92,29 @@ export function IssuesView({
    * the four layouts read the same object rather than each holding a copy.
    */
   const stored = useProjectViewStore((store) => store.byProject[projectId]);
+  const hydrated = useProjectViewStore((store) => store.hasHydrated);
   const setStoredLayout = useProjectViewStore((store) => store.setLayout);
   const setStoredFilters = useProjectViewStore((store) => store.setFilters);
   const setStoredDisplayProps = useProjectViewStore(
     (store) => store.setDisplayProps,
   );
 
-  const layout: IssueLayout = stored?.layout ?? "list";
+  // The store is skipHydration (see the sidebar fix): merge localStorage after
+  // the first paint so the server HTML and the first client render match.
+  useEffect(() => {
+    void useProjectViewStore.persist.rehydrate();
+  }, []);
+
+  // Before rehydration there is no stored layout or filter set, so the list
+  // renders — exactly what the server delivered.
+  const layout: IssueLayout = hydrated ? (stored?.layout ?? "list") : "list";
   const displayProps: DisplayProps =
-    stored?.displayProps ?? DEFAULT_DISPLAY_PROPS;
+    hydrated ? (stored?.displayProps ?? DEFAULT_DISPLAY_PROPS) : DEFAULT_DISPLAY_PROPS;
   const groupBy = displayProps.groupBy;
 
   const filters = useMemo(
-    () => (stored?.filters ?? {}) as PartialFilters,
-    [stored?.filters],
+    () => ((hydrated ? stored?.filters : undefined) ?? {}) as PartialFilters,
+    [hydrated, stored?.filters],
   );
 
   /**

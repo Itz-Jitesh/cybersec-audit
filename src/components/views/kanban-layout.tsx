@@ -168,8 +168,11 @@ function Column({
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const toggleGroup = useIssueViewStore((store) => store.toggleGroup);
+  const hydrated = useIssueViewStore((store) => store.hasHydrated);
   const collapsed = useIssueViewStore((store) =>
-    (store.collapsed[`${projectId}:kanban`] ?? []).includes(state.id),
+    hydrated
+      ? (store.collapsed[`${projectId}:kanban`] ?? []).includes(state.id)
+      : false,
   );
 
   const shown = issues.slice(0, limit);

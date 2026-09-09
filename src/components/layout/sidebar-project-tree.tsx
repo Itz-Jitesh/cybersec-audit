@@ -49,10 +49,12 @@ function ProjectBranch({
   collapsed: boolean;
 }) {
   const pathname = usePathname();
-  const { isExpanded, toggleSection } = useSidebarStore();
+  const hydrated = useSidebarStore((state) => state.hasHydrated);
+  const isExpanded = useSidebarStore((state) => state.isExpanded);
+  const toggleSection = useSidebarStore((state) => state.toggleSection);
   // Projects start closed: a team with eight projects would otherwise open to a
   // wall of forty rows.
-  const open = isExpanded(`project:${project.id}`, false);
+  const open = hydrated ? isExpanded(`project:${project.id}`, false) : false;
   const base = `/projects/${project.id}`;
 
   return (
@@ -107,7 +109,9 @@ export function SidebarProjectTree({
   collapsed: boolean;
 }) {
   const pathname = usePathname();
-  const { isExpanded, toggleSection } = useSidebarStore();
+  const hydrated = useSidebarStore((state) => state.hasHydrated);
+  const isExpanded = useSidebarStore((state) => state.isExpanded);
+  const toggleSection = useSidebarStore((state) => state.toggleSection);
 
   return (
     <div className="mt-3">
@@ -119,7 +123,10 @@ export function SidebarProjectTree({
 
       <ul>
         {teams.map((team) => {
-          const open = isExpanded(`team:${team.id}`);
+          // Before rehydration every section renders expanded, exactly like
+          // the server did. Reading stored values any earlier is what
+          // produced the hydration mismatch on /home.
+          const open = hydrated ? isExpanded(`team:${team.id}`) : true;
 
           return (
             <li key={team.id}>
