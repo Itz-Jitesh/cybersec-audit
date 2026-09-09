@@ -2,7 +2,7 @@
 
 import { Bell, Plus, Search } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { Kbd } from "@/components/shared/kbd";
@@ -40,6 +40,21 @@ export function Header({
 }: HeaderProps) {
   // The palette itself is phase 10; this is the shell it will mount into.
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Cmd/Ctrl+K opens the palette from anywhere in the app shell.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (
+        (event.key === "k" || event.key === "K") &&
+        (event.metaKey || event.ctrlKey)
+      ) {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <header className="flex h-header shrink-0 items-center gap-3 border-b border-border-subtle px-4">
