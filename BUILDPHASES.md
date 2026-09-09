@@ -785,16 +785,92 @@ existed. They are now scoped to the suite's own fixtures.
 **DoD:** a drag in one browser appears in a second within a second; a mention produces a notification.
 ---
 
-## Phase 11 — Admin, pages, analytics `[ ]`
+## Phase 11 — Admin, pages, analytics  `[~]` awaiting review
 
-**Blocked on:** Resend API key.
+- [x] Admin panel: general, members, bulk invites, teams, audit log
+- [x] Invite emails via Resend and react-email
+- [x] Role changes and deactivation, with audit entries
+- [x] Pages: list, editor, autosave, access control
+- [x] Project analytics: open/closed trend, state distribution, per-assignee load, overdue count
+- [ ] Passkey (WebAuthn) enrolment as an alternative second factor — **not possible on this stack, see below**
 
-- [ ] Admin panel: general, members, bulk invites, teams, audit log
-- [ ] Invite emails via Resend and react-email
-- [ ] Role changes and deactivation, with audit entries
-- [ ] Pages: list, editor, autosave, access control
-- [ ] Project analytics: open/closed trend, state distribution, per-assignee load, overdue count
-- [ ] Passkey (WebAuthn) enrolment as an alternative second factor
+### Notes from this phase
+
+**The admin panel** is five sections behind one sub-nav at `/admin`
+(`docs/06-UX-LAYOUT-SPEC.md` §14): General, Members, Invites, Teams, Audit log.
+The layout holds the `workspace.admin` guard so the refusal notice is written
+once, and every page asserts again for itself — a layout guard is not
+authorization, because a later refactor can render a page without it.
+
+**Invites** take a comma- or newline-separated batch, one role and one team for
+the batch, and report a per-address outcome rather than a single "sent": with
+twenty addresses, "three were already members and one bounced" is the only
+useful answer. Already-members and already-invited addresses are skipped rather
+than written, which is what stops a second invite row that could never be
+accepted.
+
+**Role changes and deactivation** hold two rules the policies also hold: nobody
+edits their own membership row, and the workspace never runs out of active
+admins. The second is app-level only — Postgres cannot see "the last one" from
+inside a row policy — and it matters, because demoting the last admin locks
+everyone out of this panel with no recovery short of editing the database by
+hand. There is currently exactly one admin in the workspace, so the guard is
+live rather than theoretical.
+
+**Pages** follow the same access rule as saved views: public to the project, or
+private to the owner. Editing is owner-only and the body is sanitised on the
+way in, the same as comments, because TipTap HTML written by one member is
+rendered in another member's browser. The detail route renders "not found"
+rather than "forbidden" for someone else's private page, so the existence of a
+private page stays private too.
+
+**Analytics** are four Postgres aggregates, not rows counted in Node: a project
+with a few thousand issues would otherwise ship its whole issue table to draw
+four small charts. The trend uses `generate_series` so a quiet day is a zero
+rather than a gap, which is the difference between a flat line and a
+misleadingly steep one. Charts are Recharts, as `docs/03-TRD.md` §1 names, with
+every colour a `var(--token)` string so phase 13 reaches them.
+
+**New dependencies**, all three named in `docs/03-TRD.md` §1: `resend`,
+`@react-email/components`, `recharts`. Both `@react-email/components@1.0.12`
+and `recharts@2.15.4` install with a deprecation warning — recharts 3.x is the
+current line and the TRD pins 2.x, so 2.x is what was installed. Worth a
+decision at some point; not changed unilaterally.
+
+### Blocked and not done
+
+- **Passkey (WebAuthn) as a second factor cannot be built on this stack.**
+  Supabase Auth's MFA supports exactly two factor types, `totp` and `phone`
+  (verified against `@supabase/auth-js` 2.116.0), and `CLAUDE.md` forbids any
+  auth library other than Supabase Auth. A hand-rolled WebAuthn flow would not
+  raise the session to `aal2`, which is what `src/middleware.ts` actually gates
+  admin access on, so it would be an enrolment screen that secures nothing.
+  This needs a decision rather than an implementation: drop the item, wait for
+  Supabase to ship WebAuthn factors, or accept an exception to the auth rule.
+- **`RESEND_API_KEY` is not set**, so no invite email has ever been sent. The
+  flow was built to degrade rather than fail: the invite row is what grants
+  access, so it is written first, and the panel shows a copyable invite link
+  and says plainly that nothing was emailed. Setting the key is the only change
+  needed for sending to start.
+
+### Verified
+
+- New suite `supabase/tests/admin.sql`, 10 assertions: invites and the audit
+  log are admin-only; nobody, admin included, can forge an audit entry from a
+  client session; a private page is private from admins as well as peers; a
+  non-owner cannot edit a page; someone outside the project sees neither.
+- The analytics SQL was run against the live database before any chart was
+  written, so the four aggregates are known to execute rather than merely to
+  typecheck.
+- `pnpm typecheck`, `pnpm lint` and `pnpm build` clean; 86 database assertions
+  green across six suites.
+
+### Not verified
+
+- No screen has been driven by a human or a browser driver.
+- No invite email has been sent or received, so the phase DoD — "the real
+  members can be invited from the UI and receive working emails" — is met on
+  the invite half and untested on the email half.
 
 **DoD:** the real members can be invited from the UI and receive working emails.
 
