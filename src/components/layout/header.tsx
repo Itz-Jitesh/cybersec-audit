@@ -80,10 +80,12 @@ export function Header({
       </Link>
 
       <DropdownMenu>
-        <DropdownMenuTrigger aria-label="Account menu" className="rounded-full">
-          <MemberAvatar user={user} size={24} />
+        <DropdownMenuTrigger asChild aria-label="Account menu">
+          <button type="button" className="rounded-full">
+            <MemberAvatar user={user} size={24} />
+          </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuContent side="bottom" align="end" className="w-52">
           <div className="px-2 py-1.5">
             <p className="truncate text-sm text-text-100">{user.displayName}</p>
             <p className="truncate text-xs text-text-400">{user.email}</p>

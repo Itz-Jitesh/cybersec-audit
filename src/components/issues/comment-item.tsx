@@ -89,7 +89,7 @@ export function CommentItem({
                   <MoreHorizontal size={14} strokeWidth={1.5} />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuContent side="bottom" align="end" className="w-40">
                 <DropdownMenuItem
                   variant="destructive"
                   onSelect={async () => {
@@ -152,7 +152,7 @@ export function CommentItem({
                 <SmilePlus size={14} strokeWidth={1.5} />
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="flex w-auto gap-1 p-1.5">
+            <PopoverContent side="bottom" align="start" className="flex w-auto gap-1 p-1.5">
               {REACTIONS.map((emoji) => (
                 <button
                   key={emoji}

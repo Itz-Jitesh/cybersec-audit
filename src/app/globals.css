@@ -275,6 +275,6 @@
   *::after {
     transition-duration: 0ms !important;
     animation-duration: 0ms !important;
-    transform: none !important;
+    /* Do NOT set transform: none — it breaks Radix floating-element positioning. */
   }
 }

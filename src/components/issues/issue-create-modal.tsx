@@ -183,7 +183,7 @@ export function IssueCreateModal({
                 )}
               </Chip>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuContent side="bottom" align="start" className="w-48">
               {states.map((option) => (
                 <DropdownMenuItem
                   key={option.id}
@@ -208,7 +208,7 @@ export function IssueCreateModal({
                 <span className="capitalize">{priority}</span>
               </Chip>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-40">
+            <DropdownMenuContent side="bottom" align="start" className="w-40">
               {PRIORITIES.map((option) => (
                 <DropdownMenuItem
                   key={option}
@@ -231,6 +231,7 @@ export function IssueCreateModal({
               </Chip>
             </DropdownMenuTrigger>
             <DropdownMenuContent
+              side="bottom"
               align="start"
               className="max-h-72 w-56 overflow-y-auto"
             >
@@ -265,6 +266,7 @@ export function IssueCreateModal({
               </Chip>
             </DropdownMenuTrigger>
             <DropdownMenuContent
+              side="bottom"
               align="start"
               className="max-h-72 w-56 overflow-y-auto"
             >
@@ -297,7 +299,7 @@ export function IssueCreateModal({
                     "Cycle"}
                 </Chip>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuContent side="bottom" align="start" className="w-48">
                 <DropdownMenuItem onSelect={() => setCycleId(null)}>
                   No cycle
                 </DropdownMenuItem>
@@ -322,7 +324,7 @@ export function IssueCreateModal({
                     : `${moduleIds.length} modules`}
                 </Chip>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuContent side="bottom" align="start" className="w-56">
                 {modules.map((module) => (
                   <DropdownMenuCheckboxItem
                     key={module.id}

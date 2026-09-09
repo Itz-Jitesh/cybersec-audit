@@ -88,7 +88,7 @@ function MultiSelect({
           <ChevronDown size={10} strokeWidth={1.5} />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-48 p-1" align="start">
+      <PopoverContent side="bottom" className="w-48 p-1" align="start">
         <div className="max-h-60 overflow-y-auto">
           {options.map((option) => (
             <button
@@ -262,7 +262,7 @@ export function FilterBar({
               <ChevronDown size={10} strokeWidth={1.5} />
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-36 p-1" align="end">
+          <PopoverContent side="bottom" className="w-36 p-1" align="end">
             {GROUP_BY_OPTIONS.map((option) => (
               <button
                 key={option.value}
@@ -294,7 +294,7 @@ export function FilterBar({
               <ChevronDown size={10} strokeWidth={1.5} />
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-36 p-1" align="end">
+          <PopoverContent side="bottom" className="w-36 p-1" align="end">
             {ORDER_BY_OPTIONS.map((option) => (
               <button
                 key={option.value}

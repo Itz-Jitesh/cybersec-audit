@@ -90,28 +90,30 @@ export function AppSidebar({
       {/* Workspace header */}
       <div className="flex h-header shrink-0 items-center px-2">
         <DropdownMenu>
-          <DropdownMenuTrigger
-            className={cn(
-              "flex h-8 items-center gap-2 rounded-sm px-1.5 transition-colors duration-[120ms] ease-out hover:bg-bg-80",
-              isCollapsed ? "w-8 justify-center px-0" : "w-full",
-            )}
-            aria-label="Workspace menu"
-          >
-            <Image
-              src="/brand/logo-mark.svg"
-              alt=""
-              width={20}
-              height={20}
-              className="shrink-0 text-text-100"
-            />
-            {!isCollapsed && (
-              <span className="flex-1 truncate text-left text-xs font-medium text-text-100">
-                {WORKSPACE_NAME}
-              </span>
-            )}
+          <DropdownMenuTrigger asChild aria-label="Workspace menu">
+            <button
+              type="button"
+              className={cn(
+                "flex h-8 items-center gap-2 rounded-sm px-1.5 transition-colors duration-[120ms] ease-out hover:bg-bg-80",
+                isCollapsed ? "w-8 justify-center px-0" : "w-full",
+              )}
+            >
+              <Image
+                src="/brand/logo-mark.svg"
+                alt=""
+                width={20}
+                height={20}
+                className="shrink-0 text-text-100"
+              />
+              {!isCollapsed && (
+                <span className="flex-1 truncate text-left text-xs font-medium text-text-100">
+                  {WORKSPACE_NAME}
+                </span>
+              )}
+            </button>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent align="start" className="w-52">
+          <DropdownMenuContent side="bottom" align="start" className="w-52">
             <DropdownMenuItem asChild>
               <a href="/admin">
                 <Settings size={14} strokeWidth={1.5} />

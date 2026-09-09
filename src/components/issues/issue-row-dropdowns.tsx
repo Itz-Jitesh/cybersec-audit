@@ -50,7 +50,7 @@ export function StateDropdown({
       <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
         {children}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent side="bottom" align="end" className="w-48">
         {states.map((state) => (
           <DropdownMenuItem
             key={state.id}
@@ -81,7 +81,7 @@ export function PriorityDropdown({
       <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
         {children}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuContent side="bottom" align="end" className="w-40">
         {PRIORITIES.map((priority) => (
           <DropdownMenuItem
             key={priority}
@@ -115,6 +115,7 @@ export function AssigneeDropdown({
         {children}
       </DropdownMenuTrigger>
       <DropdownMenuContent
+        side="bottom"
         align="end"
         className="max-h-72 w-56 overflow-y-auto"
       >
@@ -161,6 +162,7 @@ export function LabelDropdown({
         {children}
       </DropdownMenuTrigger>
       <DropdownMenuContent
+        side="bottom"
         align="end"
         className="max-h-72 w-56 overflow-y-auto"
       >

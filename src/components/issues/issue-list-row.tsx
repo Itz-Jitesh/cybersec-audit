@@ -235,7 +235,7 @@ export function IssueListRow({
             <MoreHorizontal size={14} strokeWidth={1.5} />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent side="bottom" align="end" className="w-48">
           <DropdownMenuItem
             onSelect={() =>
               copy(
