@@ -960,11 +960,51 @@ path no member ever takes. What is left is still worth guarding:
 
 ---
 
-## Phase 13 — Cybersecurity reskin `[ ]`
+## Phase 13 — Cybersecurity reskin  `[~]` groundwork done, blocked on the palette
 
 Separate effort, after the product is live.
 
-- [ ] New palette applied to the `globals.css` token block only
-- [ ] Optional display font for page titles
-- [ ] Brand assets swapped
-- [ ] Zero component files modified
+- [ ] New palette applied to the `globals.css` token block only — **needs the palette from you**
+- [ ] Optional display font for page titles — **needs the font choice**
+- [ ] Brand assets swapped — **needs the real logo**
+- [x] Zero component files modified — now mechanically enforced
+
+### Groundwork done ahead of the palette
+
+The one part of this phase that does not depend on the design is the promise
+the other three rest on: that a reskin is an edit to one file. That promise was
+not actually true, and is now.
+
+**Five colours bypassed the token layer**, all of them inside the vendored
+shadcn primitives, which the phase 2 audit's grep over `src/components` had
+counted as clean because they carry Tailwind class names rather than hex
+values: `bg-black/50` on the dialog, alert-dialog and sheet scrims, and
+`text-white` on the destructive button and badge. Two new tokens, `--overlay`
+and `--on-danger`, replace them. Without this, changing the theme would have
+meant editing five component files and hoping there were not a sixth.
+
+**`pnpm check:tokens`** now enforces it. It fails on a raw hex, an `rgb()` or
+`hsl()` call, any Tailwind default-palette class such as `text-red-500`, and a
+literal `bg-black` or `text-white`, across every file under `src/components`
+and `src/app`. Two exemptions, both deliberate: `globals.css`, where the
+literals belong, and an inline style whose colour is an expression rather than
+a literal — a state, label or team colour is a database row, not a design
+decision, and cannot be a token. Currently clean across 148 files.
+
+### Blocked on you
+
+The docs describe no palette for this phase, and `CLAUDE.md` is explicit that
+inventing requirements is worse than asking. Three things are needed:
+
+1. **The palette** — replacements for the token block in `src/app/globals.css`:
+   five background steps, four text steps, three borders, the accent and its
+   hover and subtle variants, and the four semantic colours. A screenshot, a
+   Figma file or a list of hex values all work.
+2. **A display font**, if page titles should differ from Inter, and whether it
+   is a Google font or a file to add.
+3. **The real logo**, as `public/brand/logo-full.svg` and `logo-mark.svg`. The
+   current mark is a placeholder circle drawn in `currentColor`, so it already
+   takes the theme — it is simply not your logo.
+
+Once those arrive this is a single-file change plus two asset swaps, and
+`pnpm check:tokens` is what proves no component needed touching.

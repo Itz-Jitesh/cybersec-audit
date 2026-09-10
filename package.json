@@ -23,7 +23,8 @@
     "db:test:modules": "node --env-file=.env.local src/db/run-module-tests.ts",
     "db:test:admin": "node --env-file=.env.local src/db/run-admin-tests.ts",
     "check:bundle": "node --env-file=.env.local scripts/check-client-bundle.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check:tokens": "node scripts/check-tokens.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

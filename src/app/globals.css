@@ -37,6 +37,14 @@
   --danger: #ef4444;
   --info: #3b82f6;
 
+  /* Text that sits on a filled danger surface, and the scrim behind a modal.
+     Both existed as literal `text-white` and `bg-black/50` inside the shadcn
+     primitives, which are the only two colours in the app a reskin could not
+     have reached by editing this file. They are tokens now so phase 13 stays
+     a one-file change. */
+  --on-danger: #ffffff;
+  --overlay: #00000080;
+
   /* priority */
   --priority-urgent: #ef4444;
   --priority-high: #f97316;
@@ -100,6 +108,9 @@
   --color-brand-hover: var(--accent-hover);
   --color-brand-subtle: var(--accent-subtle);
   --color-on-brand: var(--on-accent);
+
+  --color-on-danger: var(--on-danger);
+  --color-overlay: var(--overlay);
 
   --color-success: var(--success);
   --color-warning: var(--warning);
