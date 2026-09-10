@@ -15,7 +15,12 @@ const eslintConfig = [
     ignores: [
       "node_modules/**",
       ".next/**",
+      // The verification and end-to-end builds write here, and build output is
+      // not source. Without this, eslint lints minified bundles.
+      ".next-*/**",
       "out/**",
+      "test-results/**",
+      "playwright-report/**",
       "build/**",
       "drizzle/**",
       "next-env.d.ts",

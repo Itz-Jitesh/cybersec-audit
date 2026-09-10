@@ -3,6 +3,7 @@ import "server-only";
 import { render } from "@react-email/components";
 import nodemailer, { type Transporter } from "nodemailer";
 
+import { composeFrom } from "@/lib/email/from";
 import { InviteEmail } from "@/lib/email/invite-email";
 import { clientEnv } from "@/lib/env";
 import { serverEnv } from "@/lib/env.server";
@@ -99,7 +100,7 @@ export async function sendInviteEmail(
     ]);
 
     await transport.sendMail({
-      from: env.SMTP_FROM ?? env.SMTP_USER,
+      from: composeFrom(env.SMTP_FROM, env.SMTP_USER ?? ""),
       to: args.to,
       subject: `${args.inviterName} invited you to ${args.workspaceName}`,
       html,
