@@ -6,6 +6,7 @@ export const workspaceRole = pgEnum("workspace_role", [
   "admin",
   "president",
   "co_president",
+  "student_mentor",
   "member",
 ]);
 

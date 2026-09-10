@@ -29,7 +29,7 @@ import {
  * throws, and nothing here reads the row it is deciding about.
  */
 
-export type WorkspaceRole = "admin" | "president" | "co_president" | "member";
+export type WorkspaceRole = "admin" | "president" | "co_president" | "student_mentor" | "member";
 export type TeamRole = "lead" | "member";
 export type ProjectRole = "admin" | "member";
 

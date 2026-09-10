@@ -10,6 +10,7 @@ export const workspaceRoleSchema = z.enum([
   "admin",
   "president",
   "co_president",
+  "student_mentor",
   "member",
 ]);
 
