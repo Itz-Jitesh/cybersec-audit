@@ -22,9 +22,14 @@ export default async function AdminGeneralPage() {
   if (!guard.ok) notFound();
 
   const counts = await getWorkspaceCounts();
-  // Only whether the key exists is read, never the value, and this is a server
-  // component, so nothing about it reaches the browser.
-  const mailerConfigured = Boolean(serverEnv().RESEND_API_KEY);
+  // Only whether these are set is read, never their values, and this is a
+  // server component, so nothing about them reaches the browser.
+  const env = serverEnv();
+  const mailerConfigured = Boolean(env.RESEND_API_KEY);
+  // A key without a verified sender is the trap: Resend accepts the call and
+  // then refuses every recipient except the account owner, so the invite looks
+  // sent and silently is not.
+  const senderVerified = Boolean(env.RESEND_FROM);
 
   return (
     <div>
@@ -43,10 +48,22 @@ export default async function AdminGeneralPage() {
           Invite email
         </h2>
         <p className="mt-2 rounded-md border border-border-subtle p-3 text-xs text-text-300">
-          {mailerConfigured ? (
+          {mailerConfigured && senderVerified ? (
             <>
-              Resend is configured. Invites created here are emailed
-              automatically.
+              Resend is configured with a verified sender. Invites created here
+              are emailed automatically.
+            </>
+          ) : mailerConfigured ? (
+            <>
+              <span className="text-warning">
+                Resend has a key but no verified sender.
+              </span>{" "}
+              It is falling back to Resend&rsquo;s sandbox address, which only
+              delivers to the Resend account owner. Everyone else gets
+              &ldquo;invite created, email failed&rdquo;. Verify a domain at
+              resend.com/domains, then set{" "}
+              <code className="font-mono">RESEND_FROM</code> to an address on
+              it. Until then, use Copy link on the Invites tab.
             </>
           ) : (
             <>

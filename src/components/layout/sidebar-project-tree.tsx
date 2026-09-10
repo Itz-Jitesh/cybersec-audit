@@ -49,12 +49,21 @@ function ProjectBranch({
   collapsed: boolean;
 }) {
   const pathname = usePathname();
-  const hydrated = useSidebarStore((state) => state.hasHydrated);
-  const isExpanded = useSidebarStore((state) => state.isExpanded);
   const toggleSection = useSidebarStore((state) => state.toggleSection);
-  // Projects start closed: a team with eight projects would otherwise open to a
-  // wall of forty rows.
-  const open = hydrated ? isExpanded(`project:${project.id}`, false) : false;
+  /**
+   * Selected as a value, not through the store's isExpanded() helper.
+   *
+   * `useSidebarStore(state => state.isExpanded)` selects a function whose
+   * identity never changes, so Zustand saw nothing change when `expanded` was
+   * written and never re-rendered: clicking a row updated the store and the
+   * tree sat still. Selecting the boolean itself is what subscribes to it.
+   *
+   * Projects start closed: a team with eight projects would otherwise open to
+   * a wall of forty rows.
+   */
+  const open = useSidebarStore((state) =>
+    state.hasHydrated ? (state.expanded[`project:${project.id}`] ?? false) : false,
+  );
   const base = `/projects/${project.id}`;
 
   return (
@@ -110,7 +119,7 @@ export function SidebarProjectTree({
 }) {
   const pathname = usePathname();
   const hydrated = useSidebarStore((state) => state.hasHydrated);
-  const isExpanded = useSidebarStore((state) => state.isExpanded);
+  const expanded = useSidebarStore((state) => state.expanded);
   const toggleSection = useSidebarStore((state) => state.toggleSection);
 
   return (
@@ -126,7 +135,7 @@ export function SidebarProjectTree({
           // Before rehydration every section renders expanded, exactly like
           // the server did. Reading stored values any earlier is what
           // produced the hydration mismatch on /home.
-          const open = hydrated ? isExpanded(`team:${team.id}`) : true;
+          const open = hydrated ? (expanded[`team:${team.id}`] ?? true) : true;
 
           return (
             <li key={team.id}>

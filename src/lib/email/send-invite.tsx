@@ -33,7 +33,8 @@ interface SendInviteArgs {
 export async function sendInviteEmail(
   args: SendInviteArgs,
 ): Promise<InviteSendResult> {
-  const apiKey = serverEnv().RESEND_API_KEY;
+  const env = serverEnv();
+  const apiKey = env.RESEND_API_KEY;
   if (!apiKey) {
     return { sent: false, reason: "not-configured" };
   }
@@ -43,7 +44,7 @@ export async function sendInviteEmail(
   try {
     const resend = new Resend(apiKey);
     const { error } = await resend.emails.send({
-      from: INVITE_FROM,
+      from: env.RESEND_FROM ?? SANDBOX_FROM,
       to: args.to,
       subject: `${args.inviterName} invited you to ${args.workspaceName}`,
       react: (
@@ -74,8 +75,12 @@ export async function sendInviteEmail(
 }
 
 /**
- * Resend's shared sandbox sender. It delivers without a verified domain, which
- * is what makes the flow testable before the club owns one; swap it for a
- * club address once a domain is verified in the Resend dashboard.
+ * Resend's shared sandbox sender, used when RESEND_FROM is not set.
+ *
+ * It needs no verified domain, which is what makes the flow testable early,
+ * but Resend only delivers from it to the account owner's own address —
+ * everything else comes back as "You can only send testing emails to your own
+ * email address". Verify a domain at resend.com/domains and set RESEND_FROM to
+ * an address on it to send to the club.
  */
-const INVITE_FROM = "CyberSec Atria <onboarding@resend.dev>";
+const SANDBOX_FROM = "CyberSec Atria <onboarding@resend.dev>";

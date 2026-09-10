@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { SidebarItem } from "@/components/layout/sidebar-item";
 import { SidebarProjectTree } from "@/components/layout/sidebar-project-tree";
@@ -63,6 +63,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const [createOpen, setCreateOpen] = useState(false);
+  const [, startTransition] = useTransition();
   const hydrated = useSidebarStore((state) => state.hasHydrated);
   // Hydration stays false on the server, so the defaults below (expanded,
   // unfolded) are exactly what the server rendered. Once localStorage merges,
@@ -72,7 +73,12 @@ export function AppSidebar({
   );
   const toggleCollapsed = useSidebarStore((state) => state.toggleCollapsed);
   const toggleSection = useSidebarStore((state) => state.toggleSection);
-  const isExpanded = useSidebarStore((state) => state.isExpanded);
+  // Selected as a value rather than through isExpanded(): that helper is a
+  // stable function reference, so subscribing to it meant the sidebar never
+  // re-rendered when a section was toggled. See sidebar-project-tree.tsx.
+  const favoritesExpanded = useSidebarStore(
+    (state) => state.expanded["favorites"] ?? true,
+  );
 
   // Cmd+\ matches the shortcut in docs/06-UX-LAYOUT-SPEC.md §1.
   useEffect(() => {
@@ -93,7 +99,7 @@ export function AppSidebar({
     void useSidebarStore.persist.rehydrate();
   }, []);
 
-  const favoritesOpen = hydrated && isExpanded("favorites");
+  const favoritesOpen = hydrated && favoritesExpanded;
 
   return (
     <aside
@@ -144,12 +150,21 @@ export function AppSidebar({
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <form action={signOutAction}>
-                <button type="submit" className="w-full text-left">
-                  Sign out
-                </button>
-              </form>
+            {/*
+              Not a <form> inside the item. Radix closes the menu on select and
+              unmounts its contents, which tore the form out before the submit
+              event could fire — the button looked fine and did nothing.
+              Calling the action from onSelect runs it before the unmount.
+            */}
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                startTransition(async () => {
+                  await signOutAction();
+                });
+              }}
+            >
+              Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

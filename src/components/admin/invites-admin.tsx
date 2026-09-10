@@ -129,9 +129,11 @@ export function InvitesAdmin({
     <>
       {!mailerConfigured && (
         <p className="mt-4 rounded-md border border-border-subtle p-3 text-xs text-text-300">
-          <span className="text-warning">No Resend API key is set.</span> Invites
-          are still created — the invite row is what grants access — but nothing
-          is emailed. Use “Copy link” below and send it yourself.
+          <span className="text-warning">Email delivery is not set up.</span>{" "}
+          Either no Resend API key is set, or there is a key but no verified
+          sender — Resend&rsquo;s sandbox address only delivers to the account
+          owner. Invites are still created either way; the invite row is what
+          grants access. Use “Copy link” below and send it yourself.
         </p>
       )}
 

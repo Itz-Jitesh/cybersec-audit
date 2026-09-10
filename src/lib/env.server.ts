@@ -29,6 +29,16 @@ const serverSchema = clientSchema.extend({
    */
   DATABASE_POOL_URL: z.string().url().optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
+  /**
+   * The invite email's From address, e.g. "CyberSec Atria <invites@club.dev>".
+   *
+   * Optional, and it falls back to Resend's shared sandbox sender. That sender
+   * only delivers to the Resend account owner's own address, so sending to the
+   * club requires a domain verified at resend.com/domains and this variable
+   * set to an address on it. Keeping it in the environment means that switch
+   * is a deploy setting rather than a code change.
+   */
+  RESEND_FROM: z.string().min(1).optional(),
   SEED_ADMIN_EMAIL: z.string().email().optional(),
   /** Shared secret Vercel Cron sends as `Authorization: Bearer <value>`. */
   CRON_SECRET: z.string().min(1).optional(),
@@ -44,6 +54,7 @@ export function serverEnv(): ServerEnv {
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_POOL_URL: process.env.DATABASE_POOL_URL,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
+    RESEND_FROM: process.env.RESEND_FROM,
     SEED_ADMIN_EMAIL: process.env.SEED_ADMIN_EMAIL,
     CRON_SECRET: process.env.CRON_SECRET,
   });

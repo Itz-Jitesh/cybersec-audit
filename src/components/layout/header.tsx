@@ -2,7 +2,7 @@
 
 import { Plus, Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { CommandPalette } from "@/components/layout/command-palette";
@@ -35,6 +35,7 @@ export function Header({
   signOutAction,
 }: HeaderProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [, startTransition] = useTransition();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -106,16 +107,26 @@ export function Header({
             <p className="truncate text-xs text-text-400">{user.email}</p>
           </div>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <a href="/mfa">Two-factor authentication</a>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <form action={signOutAction}>
-              <button type="submit" className="w-full text-left">
-                Sign out
-              </button>
-            </form>
+          {/*
+            Two-factor enrolment used to be linked here and is not any more.
+            src/middleware.ts sends an admin, president or co_president without
+            an aal2 session to /mfa on its own, so the route is reached when it
+            is needed and the menu entry only offered a screen nobody chooses
+            to visit. The route itself is unchanged.
+
+            Sign out is an onSelect handler rather than a <form> inside the
+            item: Radix closes the menu on select and unmounts its contents,
+            which removed the form before submit could fire.
+          */}
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault();
+              startTransition(async () => {
+                await signOutAction();
+              });
+            }}
+          >
+            Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
