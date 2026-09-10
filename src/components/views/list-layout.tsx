@@ -7,7 +7,6 @@ import {
   IssueListRow,
   type IssueRowHandlers,
 } from "@/components/issues/issue-list-row";
-import { IssueQuickAdd } from "@/components/issues/issue-quick-add";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
 import { type StateGroup, StateIcon } from "@/components/shared/state-icon";
 import type { IssueLabelRef, IssueListItem } from "@/db/queries/issues";
@@ -33,7 +32,6 @@ interface ListLayoutProps {
   selectedIds: Set<string>;
   canDelete: boolean;
   handlers: IssueRowHandlers;
-  onCreated: () => void;
 }
 
 interface GroupDef {
@@ -248,12 +246,10 @@ function GroupHeader({
 /** One entry in the flattened, windowable render order. */
 type Entry =
   | { kind: "header"; group: GroupDef; count: number; collapsed: boolean }
-  | { kind: "issue"; issue: IssueListItem }
-  | { kind: "quick-add"; stateId: string };
+  | { kind: "issue"; issue: IssueListItem };
 
 const HEADER_HEIGHT = 36;
 const ROW_HEIGHT = 38;
-const QUICK_ADD_HEIGHT = 38;
 
 export function ListLayout({
   projectId,
@@ -269,7 +265,6 @@ export function ListLayout({
   selectedIds,
   canDelete,
   handlers,
-  onCreated,
 }: ListLayoutProps) {
   // Regrouping two hundred rows on every keystroke elsewhere in the view is
   // pure waste; the inputs below are the only things that can change it.
@@ -290,7 +285,7 @@ export function ListLayout({
   );
 
   /**
-   * Headers, rows and quick-adds flattened into one array in render order.
+   * Headers and rows flattened into one array in render order.
    * Virtualising a grouped list means windowing across the groups rather than
    * inside each of them, and that is only possible once the nesting is gone.
    */
@@ -301,31 +296,26 @@ export function ListLayout({
       const items = grouped.get(group.id) ?? [];
       const collapsed = collapsedIds.includes(group.id);
 
-      // A group with nothing in it is a header and a quick-add and no work.
-      // Six of those around one issue is noise, so they are dropped unless the
-      // Display popover asks for them.
+      // A group with nothing in it is a header and no work. Six of those
+      // around one issue is noise, so they are dropped unless the Display
+      // popover asks for them.
       if (items.length === 0 && !showEmptyGroups) continue;
 
       flat.push({ kind: "header", group, count: items.length, collapsed });
       if (collapsed || items.length === 0) continue;
 
       for (const issue of items) flat.push({ kind: "issue", issue });
-      if (groupBy === "state") {
-        flat.push({ kind: "quick-add", stateId: group.id });
-      }
     }
 
     return flat;
-  }, [collapsedIds, groupBy, grouped, groups, showEmptyGroups]);
+    // groupBy is absent on purpose: it shaped this list only through the
+    // quick-add row, which is gone. `groups` and `grouped` already carry it.
+  }, [collapsedIds, grouped, groups, showEmptyGroups]);
 
   const heights = useMemo(
     () =>
       entries.map((entry) =>
-        entry.kind === "header"
-          ? HEADER_HEIGHT
-          : entry.kind === "issue"
-            ? ROW_HEIGHT
-            : QUICK_ADD_HEIGHT,
+        entry.kind === "header" ? HEADER_HEIGHT : ROW_HEIGHT,
       ),
     [entries],
   );
@@ -353,17 +343,6 @@ export function ListLayout({
                 count={entry.count}
                 collapsed={entry.collapsed}
                 onToggle={() => toggleGroup(projectId, entry.group.id)}
-              />
-            );
-          }
-
-          if (entry.kind === "quick-add") {
-            return (
-              <IssueQuickAdd
-                key={`quick-add:${entry.stateId}`}
-                projectId={projectId}
-                stateId={entry.stateId}
-                onCreated={onCreated}
               />
             );
           }

@@ -527,7 +527,6 @@ export function IssuesView({
           selectedIds={selected}
           canDelete={canDelete}
           handlers={handlers}
-          onCreated={refresh}
         />
       )}
 
