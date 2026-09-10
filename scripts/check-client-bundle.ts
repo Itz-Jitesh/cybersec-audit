@@ -16,7 +16,12 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const CLIENT_DIRS = [".next/static"];
+/**
+ * Follows NEXT_DIST_DIR so this can scan a verification build rather than
+ * whatever a running dev server happens to have on disk.
+ */
+const DIST = process.env.NEXT_DIST_DIR ?? ".next";
+const CLIENT_DIRS = [`${DIST}/static`];
 
 /** Names that must never appear in anything the browser downloads. */
 const FORBIDDEN_NAMES = [

@@ -25,7 +25,10 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
-    command: `pnpm build && pnpm start --port ${PORT}`,
+    // Its own build directory. Sharing `.next` with a running dev server
+    // deletes that server's manifests mid-request; see distDir in
+    // next.config.ts.
+    command: `NEXT_DIST_DIR=.next-e2e pnpm build && NEXT_DIST_DIR=.next-e2e pnpm start --port ${PORT}`,
     url: `http://127.0.0.1:${PORT}/sign-in`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

@@ -22,7 +22,8 @@ Do not invent requirements. If a needed detail is absent from all docs, ask one 
 
 ```
 pnpm dev             # dev server
-pnpm build           # production build
+pnpm build           # production build — writes .next, do not run while dev is up
+pnpm build:verify    # same build into .next-verify, safe alongside a running dev server
 pnpm typecheck       # tsc --noEmit  — must pass before you report done
 pnpm lint            # eslint        — must pass before you report done
 pnpm db:generate     # generate Drizzle migration
