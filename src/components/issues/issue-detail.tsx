@@ -44,7 +44,12 @@ import type {
   IssueLabelRef,
 } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
-import { isSafeUrl } from "@/lib/utils/sanitize-html";
+// The core module, never the ./sanitize-html barrel: the barrel re-exports the
+// server sanitiser, which pulls isomorphic-dompurify and jsdom into whatever
+// imports it. In a Client Component that graph is still loaded during SSR, and
+// jsdom is not loadable there — the issue page died with ERR_REQUIRE_ESM on it.
+// isSafeUrl is pure string work and lives in the core with no DOM behind it.
+import { isSafeUrl } from "@/lib/utils/sanitize-html-core";
 
 export interface IssueDetailBundle {
   issue: IssueDetailData;

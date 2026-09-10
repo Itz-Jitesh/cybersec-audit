@@ -1,7 +1,15 @@
 /**
  * Server-side sanitiser.  Uses isomorphic-dompurify which wraps jsdom — this
  * file must NEVER be imported by a Client Component because Turbopack cannot
- * resolve jsdom's fs.readFileSync paths when bundling for the browser.
+ * resolve jsdom's fs.readFileSync paths when bundling for the browser, and the
+ * SSR pass of a Client Component loads jsdom in a place it cannot load.
+ *
+ * The eslint no-restricted-imports rule in eslint.config.mjs makes that a lint
+ * error instead of a runtime one. It was a runtime one twice: an ENOENT on
+ * jsdom's default stylesheet, and later an ERR_REQUIRE_ESM out of
+ * html-encoding-sniffer, both reached through a Client Component that only
+ * wanted isSafeUrl. A "server-only" import would guard it too, but that package
+ * throws under plain node and would take the sanitiser's test suite with it.
  */
 
 import DOMPurify from "isomorphic-dompurify";
