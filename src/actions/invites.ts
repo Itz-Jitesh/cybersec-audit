@@ -224,7 +224,7 @@ export async function resendInvite(
       sent.sent
         ? { sent: true }
         : { sent: false, reason: sent.reason === "not-configured"
-            ? "No Resend API key is set, so nothing was sent. Copy the invite link instead."
+            ? "SMTP is not configured, so nothing was sent. Copy the invite link instead."
             : (sent.detail ?? "The mail provider refused the message.") },
     );
   });

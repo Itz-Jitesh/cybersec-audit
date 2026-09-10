@@ -28,17 +28,28 @@ const serverSchema = clientSchema.extend({
    * developer machine works with one URL, but production wants both.
    */
   DATABASE_POOL_URL: z.string().url().optional(),
-  RESEND_API_KEY: z.string().min(1).optional(),
   /**
-   * The invite email's From address, e.g. "CyberSec Atria <invites@club.dev>".
+   * SMTP for the invite email.
    *
-   * Optional, and it falls back to Resend's shared sandbox sender. That sender
-   * only delivers to the Resend account owner's own address, so sending to the
-   * club requires a domain verified at resend.com/domains and this variable
-   * set to an address on it. Keeping it in the environment means that switch
-   * is a deploy setting rather than a code change.
+   * Resend was the original choice and is gone: it will not send to anyone but
+   * the account owner without a verified domain, and the club does not own
+   * one. A dedicated mailbox with an app password does the same job with no
+   * domain and no third party holding the member list.
+   *
+   * All five are optional so a machine with no mail configuration still boots
+   * and still creates invites — the invite row is what grants access, and the
+   * admin panel offers the link to pass on by hand. sendInviteEmail reports
+   * "not-configured" rather than throwing when they are absent.
+   *
+   * SMTP_PASSWORD is an app password, never an account password, and it is
+   * read only here on the server.
    */
-  RESEND_FROM: z.string().min(1).optional(),
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASSWORD: z.string().min(1).optional(),
+  /** e.g. "CyberSec Atria <club.invites@gmail.com>". Defaults to SMTP_USER. */
+  SMTP_FROM: z.string().min(1).optional(),
   SEED_ADMIN_EMAIL: z.string().email().optional(),
   /** Shared secret Vercel Cron sends as `Authorization: Bearer <value>`. */
   CRON_SECRET: z.string().min(1).optional(),
@@ -46,17 +57,34 @@ const serverSchema = clientSchema.extend({
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 
+/**
+ * An unset variable and a variable set to nothing are the same thing here.
+ *
+ * `.env.local` ships these keys with empty values so they are visible and
+ * ready to fill in. Without this, `SMTP_USER=` arrives as "" rather than
+ * undefined, `.optional()` never applies, and the whole build fails on a
+ * minimum-length rule for a variable nobody has configured yet.
+ */
+function blank(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export function serverEnv(): ServerEnv {
   const parsed = serverSchema.safeParse({
     ...rawClientEnv,
     SUPABASE_SERVICE_ROLE_KEY:
-      process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY,
+      blank(process.env.SUPABASE_SERVICE_ROLE_KEY) ??
+      blank(process.env.SUPABASE_SECRET_KEY),
     DATABASE_URL: process.env.DATABASE_URL,
-    DATABASE_POOL_URL: process.env.DATABASE_POOL_URL,
-    RESEND_API_KEY: process.env.RESEND_API_KEY,
-    RESEND_FROM: process.env.RESEND_FROM,
-    SEED_ADMIN_EMAIL: process.env.SEED_ADMIN_EMAIL,
-    CRON_SECRET: process.env.CRON_SECRET,
+    DATABASE_POOL_URL: blank(process.env.DATABASE_POOL_URL),
+    SMTP_HOST: blank(process.env.SMTP_HOST),
+    SMTP_PORT: blank(process.env.SMTP_PORT),
+    SMTP_USER: blank(process.env.SMTP_USER),
+    SMTP_PASSWORD: blank(process.env.SMTP_PASSWORD),
+    SMTP_FROM: blank(process.env.SMTP_FROM),
+    SEED_ADMIN_EMAIL: blank(process.env.SEED_ADMIN_EMAIL),
+    CRON_SECRET: blank(process.env.CRON_SECRET),
   });
 
   if (!parsed.success) {

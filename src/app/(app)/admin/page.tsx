@@ -23,13 +23,11 @@ export default async function AdminGeneralPage() {
 
   const counts = await getWorkspaceCounts();
   // Only whether these are set is read, never their values, and this is a
-  // server component, so nothing about them reaches the browser.
+  // server component, so no part of the SMTP credentials reaches the browser.
   const env = serverEnv();
-  const mailerConfigured = Boolean(env.RESEND_API_KEY);
-  // A key without a verified sender is the trap: Resend accepts the call and
-  // then refuses every recipient except the account owner, so the invite looks
-  // sent and silently is not.
-  const senderVerified = Boolean(env.RESEND_FROM);
+  const mailerConfigured = Boolean(
+    env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD,
+  );
 
   return (
     <div>
@@ -48,30 +46,23 @@ export default async function AdminGeneralPage() {
           Invite email
         </h2>
         <p className="mt-2 rounded-md border border-border-subtle p-3 text-xs text-text-300">
-          {mailerConfigured && senderVerified ? (
+          {mailerConfigured ? (
             <>
-              Resend is configured with a verified sender. Invites created here
-              are emailed automatically.
-            </>
-          ) : mailerConfigured ? (
-            <>
-              <span className="text-warning">
-                Resend has a key but no verified sender.
-              </span>{" "}
-              It is falling back to Resend&rsquo;s sandbox address, which only
-              delivers to the Resend account owner. Everyone else gets
-              &ldquo;invite created, email failed&rdquo;. Verify a domain at
-              resend.com/domains, then set{" "}
-              <code className="font-mono">RESEND_FROM</code> to an address on
-              it. Until then, use Copy link on the Invites tab.
+              Sending as{" "}
+              <code className="font-mono">
+                {env.SMTP_FROM ?? env.SMTP_USER}
+              </code>
+              . Invites created here are emailed automatically.
             </>
           ) : (
             <>
-              <span className="text-warning">No Resend API key is set.</span>{" "}
+              <span className="text-warning">SMTP is not configured.</span>{" "}
               Invites still work — the invite row is what grants access — but no
               email goes out. Copy the link from the Invites tab and send it
-              yourself, or set <code className="font-mono">RESEND_API_KEY</code>{" "}
-              and the sending resumes with no other change.
+              yourself, or set <code className="font-mono">SMTP_HOST</code>,{" "}
+              <code className="font-mono">SMTP_USER</code> and{" "}
+              <code className="font-mono">SMTP_PASSWORD</code> and sending
+              resumes with no other change.
             </>
           )}
         </p>

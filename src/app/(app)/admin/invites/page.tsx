@@ -32,11 +32,10 @@ export default async function AdminInvitesPage() {
       <InvitesAdmin
         invites={invites}
         teams={teamRows}
-        // A key with no verified sender cannot reach anyone but the Resend
-        // account owner, so it is not "configured" as far as this screen is
-        // concerned — saying otherwise would promise delivery that fails.
         mailerConfigured={Boolean(
-          serverEnv().RESEND_API_KEY && serverEnv().RESEND_FROM,
+          serverEnv().SMTP_HOST &&
+            serverEnv().SMTP_USER &&
+            serverEnv().SMTP_PASSWORD,
         )}
       />
     </div>

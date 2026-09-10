@@ -73,6 +73,12 @@ export function MemberAvatar({
         alt={user.displayName}
         width={size}
         height={size}
+        // The width/height attributes alone are not enough. As a flex item the
+        // img inherits align-items: stretch and grows to the row's height,
+        // which object-cover then crops into a tall strip — visible on any
+        // comment longer than one line. Pinning both dimensions in CSS is what
+        // actually holds the square.
+        style={{ width: size, height: size }}
         className={cn(base, "object-cover")}
       />
     );
