@@ -710,7 +710,8 @@ signed in yet. Fixed in one pass; commit `976e732`.
   It is a phase 9 item and is still open.
 - **`DATABASE_POOL_URL` is still unset**, so runtime queries use the session
   pooler on 5432, capped at fifteen clients.
-- The hand-rolled sanitiser has not yet been swapped for a vetted library.
+- The hand-rolled sanitiser has been swapped for DOMPurify. See the note at
+  the end of this file.
 
 ## Phase 10 — Cycles, modules, realtime, search  `[~]` awaiting review
 
@@ -1008,3 +1009,40 @@ inventing requirements is worse than asking. Three things are needed:
 
 Once those arrive this is a single-file change plus two asset swaps, and
 `pnpm check:tokens` is what proves no component needed touching.
+
+---
+
+## Carried-over item, now closed: the sanitiser
+
+`src/lib/utils/sanitize-html.ts` rebuilt every tag from a regular expression
+over the raw HTML string. That was defensible as a stop-gap — the hole it
+closed was live, and adding a dependency needed sign-off — but a parser written
+in regular expressions is the wrong tool for a security boundary. Mutation XSS
+turns on precisely the disagreements between such a pass and the browser's own
+parser, and only the browser's parser knows what the browser will do.
+
+The engine is now DOMPurify, via `isomorphic-dompurify` so the one client
+component that renders stored HTML can use the same function. The exported API,
+the allow-lists and the test file are unchanged — the tests describe the
+contract and the engine underneath them moved.
+
+Two configuration mistakes were caught by the existing suite rather than by
+review, which is the argument for having written it first:
+
+- `USE_PROFILES: { html: true }` replaces `ALLOWED_TAGS` with the profile's own
+  far larger list rather than intersecting with it, which let `<form>` and
+  `<button>` straight through.
+- `ALLOW_DATA_ATTR: false` stripped every `data-*` before the per-tag hook ran,
+  and three allow-listed attributes are data attributes — the mention id, the
+  task-list checkbox and the list type. The parser is permissive now and the
+  hook is what narrows it again.
+
+**Honest result.** Four mutation-XSS payloads were added to the suite and the
+old implementation was checked out and run against them: it blocked all four.
+So this swap did not close a demonstrated hole. What it bought is that the
+security boundary is now maintained and audited by people who track new bypass
+techniques, rather than being a bespoke parser this project would have to keep
+current itself.
+
+Cost: 11 kB on the issue-detail route, 142 kB to 153 kB. jsdom stays on the
+server — verified absent from the client bundle. 39 assertions green.

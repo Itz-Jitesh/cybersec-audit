@@ -112,6 +112,36 @@ const VECTORS: Vector[] = [
     forbidden: "<form",
     note: "form injection",
   },
+  /**
+   * Mutation XSS. These are the payloads a regex-based pass loses to: each is
+   * inert as written, and the browser's own parser rearranges it into markup
+   * that is not. Only a sanitiser that parses the way the browser parses can
+   * see the second shape, which is the reason this file's engine is DOMPurify
+   * rather than the hand-rolled rebuild it replaced.
+   */
+  {
+    input:
+      '<noscript><p title="</noscript><img src=x onerror=alert(1)>"></noscript>',
+    forbidden: "onerror",
+    note: "mXSS through noscript title",
+  },
+  {
+    input:
+      '<svg></p><style><a id="</style><img src=1 onerror=alert(1)>"></style></svg>',
+    forbidden: "onerror",
+    note: "mXSS through svg style",
+  },
+  {
+    input:
+      '<math><mtext><table><mglyph><style><!--</style><img src onerror=alert(1)>',
+    forbidden: "onerror",
+    note: "mXSS through mathml mglyph",
+  },
+  {
+    input: '<a href="  JaVaScRiPt&#58;alert(1)">x</a>',
+    forbidden: "alert",
+    note: "entity-encoded colon with leading whitespace",
+  },
   {
     input: '<object data="javascript:alert(1)"></object>',
     forbidden: "object",

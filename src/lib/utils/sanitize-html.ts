@@ -1,26 +1,31 @@
 /**
  * Allow-list sanitiser for the rich text this app stores.
  *
- * Why this exists: comment and description HTML arrives from the client as a
- * plain string. The zod schema checks only its length, so anything that can
- * make an authenticated request can post arbitrary markup, and the comment
+ * Why this exists: comment, description and page HTML arrives from the client
+ * as a plain string. The zod schema checks only its length, so anything that
+ * can make an authenticated request can post arbitrary markup, and the comment
  * renderer puts it straight into the DOM. That is stored XSS against every
  * member who later opens the issue. TipTap's schema constrains what its own
  * editor produces; it constrains nothing about what a crafted request sends.
  *
- * The approach is deliberately narrow. Rather than trying to parse and repair
- * arbitrary HTML, every tag is rebuilt from scratch: an element survives only
- * if its name is on the list, and it keeps only the attributes named for that
- * element, with each value re-validated and re-escaped. Anything unrecognised
- * is dropped. There is no path by which an attribute the sanitiser did not
- * write can reach the output.
+ * The engine is DOMPurify, which parses the input with a real HTML parser and
+ * walks the resulting tree. The hand-rolled version this replaces rebuilt
+ * every tag from a regular expression over the raw string — defensible as a
+ * stop-gap while a dependency was waiting on sign-off, but a parser written in
+ * regular expressions is the wrong tool for a security boundary: mutation XSS
+ * turns on exactly the disagreements between such a pass and the browser's own
+ * parser, and only the browser's parser knows what the browser will do.
  *
- * A vetted library — DOMPurify or sanitize-html — remains the better long-term
- * answer, and swapping this out is a small change because everything funnels
- * through sanitizeRichText. It is not used here because adding a dependency
- * needs sign-off under the project's rules, and leaving a live hole open while
- * waiting for that would be the worse trade.
+ * The allow-lists below are unchanged, and so is the exported API and its test
+ * suite, which is the point — the tests describe the contract and the engine
+ * underneath them moved.
+ *
+ * isSafeUrl stays hand-written. DOMPurify vets hrefs inside HTML for us, but
+ * issue links are stored as bare URL strings with no markup around them, and
+ * that check has its own assertions.
  */
+
+import DOMPurify from "isomorphic-dompurify";
 
 /** Tags TipTap emits with the extension set configured in rich-editor.tsx. */
 const ALLOWED_TAGS = new Set([
@@ -59,9 +64,6 @@ const DROP_WITH_CONTENT = [
   "math",
   "title",
 ];
-
-const VOID_TAGS = new Set(["br", "hr"]);
-
 /** Per-tag attribute allow-list. Everything else is discarded. */
 const ALLOWED_ATTRS: Record<string, Set<string>> = {
   a: new Set(["href"]),
@@ -116,104 +118,84 @@ export function isSafeUrl(raw: string): boolean {
     decoded.startsWith("mailto:")
   );
 }
+/**
+ * The per-tag attribute rules, applied after DOMPurify's own pass.
+ *
+ * DOMPurify's ALLOWED_ATTR is global — permit `class` and every allowed tag
+ * may carry it. This project's rules are per-tag, so the global list is the
+ * union and this hook then removes anything not named for the element it
+ * actually landed on. A mention id is additionally required to be a uuid,
+ * since it is rendered into markup that other members read.
+ */
+const GLOBAL_ATTRS = [
+  ...new Set(
+    Object.values(ALLOWED_ATTRS).flatMap((set) => [...set]),
+  ),
+];
 
-function escapeAttribute(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
+let hookInstalled = false;
 
-/** Reads attributes out of a raw tag body without trusting order or quoting. */
-function parseAttributes(source: string): Map<string, string> {
-  const attributes = new Map<string, string>();
-  const pattern =
-    /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*(?:=\s*("[^"]*"|'[^']*'|[^\s"'>]+))?/g;
+function installHook(): void {
+  if (hookInstalled) return;
+  hookInstalled = true;
 
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(source)) !== null) {
-    const name = match[1].toLowerCase();
-    let value = match[2] ?? "";
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    const element = node as Element;
+    if (!element.tagName) return;
+
+    const tag = element.tagName.toLowerCase();
+    const permitted = ALLOWED_ATTRS[tag];
+
+    for (const attribute of [...element.attributes]) {
+      const name = attribute.name.toLowerCase();
+
+      if (!permitted?.has(name)) {
+        element.removeAttribute(attribute.name);
+        continue;
+      }
+
+      if (name === "data-mention-id" && !UUID.test(attribute.value)) {
+        element.removeAttribute(attribute.name);
+        continue;
+      }
+
+      if (name === "href" && !isSafeUrl(attribute.value)) {
+        element.removeAttribute(attribute.name);
+      }
     }
-    attributes.set(name, value);
-  }
-
-  return attributes;
-}
-
-function rebuildTag(
-  tag: string,
-  rawAttributes: string,
-  closing: boolean,
-): string {
-  if (closing) return VOID_TAGS.has(tag) ? "" : `</${tag}>`;
-
-  const allowed = ALLOWED_ATTRS[tag];
-  const kept: string[] = [];
-
-  if (allowed) {
-    for (const [name, value] of parseAttributes(rawAttributes)) {
-      if (!allowed.has(name)) continue;
-      if (name === "href" && !isSafeUrl(value)) continue;
-      if (name === "data-mention-id" && !UUID.test(value)) continue;
-
-      // class is allow-listed per tag but its value is still free text, so it
-      // is escaped like everything else rather than trusted.
-      kept.push(`${name}="${escapeAttribute(value)}"`);
-    }
-  }
-
-  // A link that survives leaves this origin, so it gets the attributes that
-  // stop the target page reaching back through window.opener.
-  if (tag === "a" && kept.some((attr) => attr.startsWith("href="))) {
-    kept.push('target="_blank"', 'rel="noopener noreferrer nofollow"');
-  }
-
-  const attrs = kept.length > 0 ? ` ${kept.join(" ")}` : "";
-  return VOID_TAGS.has(tag) ? `<${tag}${attrs} />` : `<${tag}${attrs}>`;
+  });
 }
 
 /**
- * Returns HTML containing only allow-listed elements and attributes.
+ * Strip everything not on the allow-list.
  *
  * Disallowed elements are unwrapped rather than deleted — their text survives,
  * so a paste does not silently lose content — except for those in
  * DROP_WITH_CONTENT, where the content is the thing being defended against.
+ * That is DOMPurify's default behaviour for KEEP_CONTENT plus FORBID_CONTENTS,
+ * which is why both lists carry over unchanged.
  */
 export function sanitizeRichText(input: string): string {
-  let html = input;
+  installHook();
 
-  for (const tag of DROP_WITH_CONTENT) {
-    html = html.replace(
-      new RegExp(`<${tag}\\b[\\s\\S]*?<\\/${tag}\\s*>`, "gi"),
-      "",
-    );
-    // An unclosed one would otherwise leave its opening tag behind.
-    html = html.replace(new RegExp(`<\\/?${tag}\\b[^>]*>`, "gi"), "");
-  }
-
-  // Comments can hide markup from a naive pass and carry conditional syntax.
-  html = html.replace(/<!--[\s\S]*?-->/g, "");
-
-  return html.replace(
-    /<\s*(\/)?\s*([a-zA-Z][a-zA-Z0-9-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g,
-    (
-      _match: string,
-      slash: string | undefined,
-      rawTag: string,
-      rawAttributes: string,
-    ) => {
-      const tag = rawTag.toLowerCase();
-      if (!ALLOWED_TAGS.has(tag)) return "";
-      return rebuildTag(tag, rawAttributes ?? "", slash === "/");
-    },
-  );
+  return DOMPurify.sanitize(input, {
+    ALLOWED_TAGS: [...ALLOWED_TAGS],
+    ALLOWED_ATTR: GLOBAL_ATTRS,
+    // Unwrap unknown elements, keeping their text.
+    KEEP_CONTENT: true,
+    // …except these, where the content is the payload.
+    FORBID_CONTENTS: DROP_WITH_CONTENT,
+    // data-* has to survive DOMPurify's own pass, because three of the
+    // allow-listed attributes are data attributes — a mention id, a task-list
+    // checkbox and a list type. The hook above is what narrows them again:
+    // anything not named for the element it landed on is removed there, so
+    // this is permissive at the parser and strict at the tree.
+    ALLOW_DATA_ATTR: true,
+    ALLOW_ARIA_ATTR: false,
+    // USE_PROFILES is deliberately absent. Setting it replaces ALLOWED_TAGS
+    // with the profile's own much larger list, which let <form> and <button>
+    // straight through — caught by the form-injection assertion.
+  });
 }
 
 /** True when the document carries nothing but markup and whitespace. */
