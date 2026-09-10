@@ -22,6 +22,10 @@ export type ActionErrorCode =
   | "STATE_IN_USE"
   | "LAST_STATE"
   | "DEFAULT_STATE"
+  /** The person is already on the team — a race, not the normal path. */
+  | "ALREADY_MEMBER"
+  /** Removing this person would leave a populated team with no lead. */
+  | "LAST_LEAD"
   | "UNEXPECTED";
 
 export function ok<T>(data: T): ActionResult<T> {

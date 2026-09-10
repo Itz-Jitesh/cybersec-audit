@@ -17,12 +17,34 @@ import { projects, teamMembers, teams } from "@/db/schema";
 import { assertCan } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
+  addTeamMemberSchema,
   createTeamSchema,
   deleteTeamSchema,
   setTeamRoleSchema,
   teamMemberSchema,
   updateTeamSchema,
 } from "@/lib/validators/team";
+
+/** A club team is tens of people; this is a guard, not a page size. */
+const TEAM_ROSTER_LIMIT = 200;
+
+/**
+ * Membership changes move a person's read access across every project the team
+ * owns, so the sidebar, the admin table and the team page must all reflect it
+ * immediately. The layout revalidation covers the navigation tree; the two
+ * explicit paths cover the surfaces that render the roster itself.
+ */
+async function revalidateTeam(teamId: string): Promise<void> {
+  const [team] = await db
+    .select({ slug: teams.slug })
+    .from(teams)
+    .where(eq(teams.id, teamId))
+    .limit(1);
+
+  revalidatePath("/", "layout");
+  revalidatePath("/admin/teams");
+  if (team) revalidatePath(`/teams/${team.slug}`);
+}
 
 export async function createTeam(
   input: unknown,
@@ -152,7 +174,7 @@ export async function addTeamMember(
   input: unknown,
 ): Promise<ActionResult<null>> {
   return guarded("addTeamMember", async () => {
-    const parsed = teamMemberSchema.safeParse(input);
+    const parsed = addTeamMemberSchema.safeParse(input);
     if (!parsed.success) return invalid(parsed.error);
 
     const user = await getCurrentUser();
@@ -162,12 +184,39 @@ export async function addTeamMember(
     });
     if (!guard.ok) return denied(guard);
 
-    await db
+    // The unique constraint on (team_id, user_id) decides this, not a prior
+    // read: two admins adding the same person at once would both pass a check
+    // done in application code. An empty returning() means the row was already
+    // there, which is a no-op worth reporting rather than an error.
+    const inserted = await db
       .insert(teamMembers)
-      .values({ teamId: parsed.data.teamId, userId: parsed.data.userId })
-      .onConflictDoNothing();
+      .values({
+        teamId: parsed.data.teamId,
+        userId: parsed.data.userId,
+        role: parsed.data.role,
+      })
+      .onConflictDoNothing()
+      .returning({ id: teamMembers.id });
 
-    revalidatePath("/", "layout");
+    if (inserted.length === 0) {
+      return fail("That person is already in this team.", "ALREADY_MEMBER");
+    }
+
+    if (user) {
+      await writeAudit({
+        actorId: user.id,
+        action: "team.member_added",
+        entityType: "team_member",
+        entityId: parsed.data.userId,
+        metadata: {
+          teamId: parsed.data.teamId,
+          targetUserId: parsed.data.userId,
+          role: parsed.data.role,
+        },
+      });
+    }
+
+    await revalidateTeam(parsed.data.teamId);
     return ok(null);
   });
 }
@@ -186,6 +235,28 @@ export async function removeTeamMember(
     });
     if (!guard.ok) return denied(guard);
 
+    const roster = await db
+      .select({ userId: teamMembers.userId, role: teamMembers.role })
+      .from(teamMembers)
+      .where(eq(teamMembers.teamId, parsed.data.teamId))
+      .limit(TEAM_ROSTER_LIMIT);
+
+    const target = roster.find((row) => row.userId === parsed.data.userId);
+    if (!target) {
+      return fail("That person is not in this team.", "NOT_FOUND");
+    }
+
+    // A team with members but no lead has nobody who can manage it, and only a
+    // workspace admin could then repair it. Emptying a team completely is
+    // allowed — there is nothing left to strand.
+    const leadCount = roster.filter((row) => row.role === "lead").length;
+    if (target.role === "lead" && leadCount === 1 && roster.length > 1) {
+      return fail(
+        "This is the team's only lead. Promote another member first.",
+        "LAST_LEAD",
+      );
+    }
+
     await db
       .delete(teamMembers)
       .where(
@@ -195,7 +266,21 @@ export async function removeTeamMember(
         ),
       );
 
-    revalidatePath("/", "layout");
+    if (user) {
+      await writeAudit({
+        actorId: user.id,
+        action: "team.member_removed",
+        entityType: "team_member",
+        entityId: parsed.data.userId,
+        metadata: {
+          teamId: parsed.data.teamId,
+          targetUserId: parsed.data.userId,
+          previousRole: target.role,
+        },
+      });
+    }
+
+    await revalidateTeam(parsed.data.teamId);
     return ok(null);
   });
 }
@@ -212,7 +297,25 @@ export async function setTeamRole(input: unknown): Promise<ActionResult<null>> {
     });
     if (!guard.ok) return denied(guard);
 
-    const updated = await db
+    // Read the previous role first so the audit entry records the transition
+    // rather than only its destination. Multiple leads per team are allowed,
+    // so there is no single-lead constraint to enforce here.
+    const [existing] = await db
+      .select({ role: teamMembers.role })
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.teamId, parsed.data.teamId),
+          eq(teamMembers.userId, parsed.data.userId),
+        ),
+      )
+      .limit(1);
+
+    if (!existing) {
+      return fail("That person is not in this team.", "NOT_FOUND");
+    }
+
+    await db
       .update(teamMembers)
       .set({ role: parsed.data.role })
       .where(
@@ -220,12 +323,7 @@ export async function setTeamRole(input: unknown): Promise<ActionResult<null>> {
           eq(teamMembers.teamId, parsed.data.teamId),
           eq(teamMembers.userId, parsed.data.userId),
         ),
-      )
-      .returning({ id: teamMembers.id });
-
-    if (updated.length === 0) {
-      return fail("That person is not in this team.", "NOT_FOUND");
-    }
+      );
 
     if (user) {
       await writeAudit({
@@ -233,11 +331,16 @@ export async function setTeamRole(input: unknown): Promise<ActionResult<null>> {
         action: "team.role_changed",
         entityType: "team_member",
         entityId: parsed.data.userId,
-        metadata: { teamId: parsed.data.teamId, role: parsed.data.role },
+        metadata: {
+          teamId: parsed.data.teamId,
+          targetUserId: parsed.data.userId,
+          previousRole: existing.role,
+          role: parsed.data.role,
+        },
       });
     }
 
-    revalidatePath("/", "layout");
+    await revalidateTeam(parsed.data.teamId);
     return ok(null);
   });
 }

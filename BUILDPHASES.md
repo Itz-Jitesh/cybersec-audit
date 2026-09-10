@@ -1109,3 +1109,46 @@ yields `aal1`, which cannot satisfy the `aal2` gate `src/middleware.ts`
 enforces for `admin`, `president` and `co_president`. TOTP is therefore the
 only second factor, and passkey sign-in — if it is ever added — would be an
 additional primary sign-in method, not a replacement.
+
+---
+
+## Gap B, now closed: team membership management
+
+Until now the only path onto a team was the optional `team_id` on an invite,
+consumed by `handle_new_user` at first sign-in. Moving somebody between teams,
+adding a second team, or naming a lead meant editing the database by hand.
+
+**What already existed.** `src/actions/teams.ts` shipped in phase 7 with all
+six exports, so this was an extension rather than a build: `addTeamMember` took
+no role and swallowed duplicates with `onConflictDoNothing`, `removeTeamMember`
+had no guard and wrote no audit row, and `setTeamRole` recorded only the
+destination role, never the transition. `team.manage` was already in the
+ability union and `is_team_lead` already resolved workspace admin *or* lead of
+that team, so no permission string and no policy needed adding.
+
+**The two rules worth naming.** A duplicate add is decided by the unique
+constraint on `(team_id, user_id)`, not by reading first — two admins adding
+the same person concurrently would both pass a read, and both would then
+insert. `on conflict do nothing` with an empty `returning()` is what reports
+`ALREADY_MEMBER`. And removing the last lead of a team that still has members
+is refused with `LAST_LEAD`: such a team has nobody who can manage it, and only
+a workspace admin could repair it. Emptying a team completely is still allowed,
+because there is nobody left to strand.
+
+Multiple leads per team are permitted deliberately. A club team with two people
+sharing the role is the normal case, not an error.
+
+**Where the optimism lives.** `TeamMembersPanel` uses React's `useOptimistic`
+rather than the TanStack contract in `docs/03-TRD.md` §3.1. That contract
+snapshots and restores a query cache; this roster is server-rendered props,
+with no cache to snapshot. When the transition ends the props are authoritative
+again, which is the same rollback by a different mechanism.
+
+`canManage` removes the controls rather than disabling them. A disabled
+dropdown still announces that the control exists and invites a hunt for the
+enabled version; the server refuses either way.
+
+`supabase/tests/team-members.sql` — 15 assertions. The cross-team case is the
+one that matters: a lead of one team is an outsider to every other, and nothing
+in the UI can enforce that, since a crafted request can carry any team id.
+

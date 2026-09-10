@@ -1,12 +1,14 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { createTeam, deleteTeam, updateTeam } from "@/actions/teams";
 import { ColorPicker } from "@/components/projects/color-picker";
+import { AvatarGroup } from "@/components/shared/avatar-group";
 import { InlineEditableText } from "@/components/shared/inline-editable-text";
 import {
   AlertDialog,
@@ -38,6 +40,8 @@ export interface AdminTeam {
   description: string | null;
   color: string;
   projectCount: number;
+  memberCount: number;
+  leads: { id: string; displayName: string; avatarUrl: string | null }[];
 }
 
 /** Mirrors the slug rule in the validator, so the field previews what will be sent. */
@@ -49,7 +53,14 @@ function slugify(name: string): string {
     .slice(0, 32);
 }
 
-export function TeamsAdmin({ teams }: { teams: AdminTeam[] }) {
+export function TeamsAdmin({
+  teams,
+  managingTeamId,
+}: {
+  teams: AdminTeam[];
+  /** The team whose membership panel is open, from the ?team= search param. */
+  managingTeamId?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -121,10 +132,39 @@ export function TeamsAdmin({ teams }: { teams: AdminTeam[] }) {
               />
             </span>
             <span className="font-mono text-xs text-text-400">{team.slug}</span>
-            <span className="w-24 text-right text-xs text-text-300">
+
+            {team.leads.length > 0 && (
+              <AvatarGroup
+                users={team.leads.map((lead) => ({
+                  id: lead.id,
+                  displayName: lead.displayName,
+                  avatarUrl: lead.avatarUrl,
+                }))}
+                max={3}
+                size={20}
+              />
+            )}
+
+            <span className="w-20 text-right text-xs text-text-300">
+              {team.memberCount}{" "}
+              {team.memberCount === 1 ? "member" : "members"}
+            </span>
+            <span className="w-20 text-right text-xs text-text-300">
               {team.projectCount}{" "}
               {team.projectCount === 1 ? "project" : "projects"}
             </span>
+
+            <Link
+              href={
+                managingTeamId === team.id
+                  ? "/admin/teams"
+                  : `/admin/teams?team=${team.id}`
+              }
+              scroll={false}
+              className="rounded-sm px-2 py-1 text-xs text-text-300 transition-colors duration-[120ms] ease-out hover:bg-bg-70 hover:text-text-100"
+            >
+              {managingTeamId === team.id ? "Close" : "Manage"}
+            </Link>
 
             <AlertDialog>
               <AlertDialogTrigger asChild>

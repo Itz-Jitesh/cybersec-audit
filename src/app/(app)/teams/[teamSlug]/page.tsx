@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { TeamMembersPanel } from "@/components/admin/team-members-panel";
 import { MemberAvatar } from "@/components/shared/member-avatar";
 import { TeamProjects } from "@/components/teams/team-projects";
 import { getNavigationTree } from "@/db/queries/navigation";
@@ -9,6 +10,7 @@ import {
   getTeamProjects,
   getWorkspaceMembers,
 } from "@/db/queries/project";
+import { getWorkspaceMembersNotInTeam } from "@/db/queries/teams";
 import { assertCan } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
 
@@ -33,17 +35,24 @@ export default async function TeamPage({ params }: TeamPageProps) {
   });
   if (!readable.ok) notFound();
 
-  const canCreate = await assertCan(user, {
+  // The same ability the actions check. It gates rendering only; every
+  // membership action re-runs assertCan server-side regardless of what the UI
+  // decided to draw.
+  const canManage = await assertCan(user, {
     kind: "team.manage",
     teamId: team.id,
   });
 
-  const [members, projects, tree, workspaceMembers] = await Promise.all([
-    getTeamMembers(team.id),
-    getTeamProjects(team.id, user.id),
-    getNavigationTree(user.id, ADMIN_ROLES.has(user.role)),
-    getWorkspaceMembers(),
-  ]);
+  const [members, projects, tree, workspaceMembers, addableMembers] =
+    await Promise.all([
+      getTeamMembers(team.id),
+      getTeamProjects(team.id, user.id),
+      getNavigationTree(user.id, ADMIN_ROLES.has(user.role)),
+      getWorkspaceMembers(),
+      canManage.ok
+        ? getWorkspaceMembersNotInTeam(team.id)
+        : Promise.resolve([]),
+    ]);
 
   const leads = members.filter((member) => member.role === "lead");
 
@@ -121,13 +130,31 @@ export default async function TeamPage({ params }: TeamPageProps) {
         </div>
       </section>
 
+      <section className="mt-6">
+        <h2 className="text-sm font-medium text-text-200">Members</h2>
+        <div className="mt-2">
+          <TeamMembersPanel
+            team={{ id: team.id, name: team.name }}
+            members={members.map((member) => ({
+              userId: member.userId,
+              displayName: member.displayName,
+              email: member.email,
+              avatarUrl: member.avatarUrl,
+              role: member.role === "lead" ? "lead" : "member",
+            }))}
+            addableMembers={addableMembers}
+            canManage={canManage.ok}
+          />
+        </div>
+      </section>
+
       <TeamProjects
         teamId={team.id}
         teamName={team.name}
         projects={projects}
         teams={tree.teams.map((row) => ({ id: row.id, name: row.name }))}
         members={workspaceMembers}
-        canCreate={canCreate.ok}
+        canCreate={canManage.ok}
       />
     </div>
   );

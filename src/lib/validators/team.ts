@@ -40,9 +40,20 @@ export const teamMemberSchema = z.object({
   userId: z.string().uuid(),
 });
 
+export const teamRoleSchema = z.enum(["lead", "member"]);
+
 export const setTeamRoleSchema = teamMemberSchema.extend({
-  role: z.enum(["lead", "member"]),
+  role: teamRoleSchema,
+});
+
+/**
+ * Adding carries a role because the picker offers one. It defaults to member
+ * so an omitted field cannot silently promote somebody.
+ */
+export const addTeamMemberSchema = teamMemberSchema.extend({
+  role: teamRoleSchema.default("member"),
 });
 
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
 export type UpdateTeamInput = z.infer<typeof updateTeamSchema>;
+export type TeamMemberRole = z.infer<typeof teamRoleSchema>;
