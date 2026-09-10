@@ -213,37 +213,8 @@ export async function getIssuesForProject(
   }
 
   if (filters.search) {
-    // Uses the generated search_vector column and its GIN index rather than a
-    // LIKE scan, so this stays usable as the project grows.
     conditions.push(
-      // search_vector is a generated column created in
-      // supabase/migrations/0002_search_vector.sql, so it is not part of the
-      // Drizzle schema and is referenced by name.
       sql`issues.search_vector @@ websearch_to_tsquery('english', ${filters.search})`,
-    );
-  }
-
-  // These were built with sql.raw and string concatenation. The ids are
-  // zod-validated uuids today, so nothing was exploitable, but that made the
-  // query's safety depend on a validator in another file staying exactly as it
-  // is. inArray parameterises them and removes the string-building path.
-  if (filters.assigneeIds?.length) {
-    conditions.push(
-      sql`exists (
-        select 1 from ${issueAssignees}
-        where ${issueAssignees.issueId} = ${issues.id}
-          and ${inArray(issueAssignees.userId, filters.assigneeIds)}
-      )`,
-    );
-  }
-
-  if (filters.labelIds?.length) {
-    conditions.push(
-      sql`exists (
-        select 1 from ${issueLabels}
-        where ${issueLabels.issueId} = ${issues.id}
-          and ${inArray(issueLabels.labelId, filters.labelIds)}
-      )`,
     );
   }
 
