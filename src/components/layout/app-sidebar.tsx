@@ -109,11 +109,12 @@ export function AppSidebar({
           )}
         >
           <Image
-            src="/brand/logo-mark.svg"
+            src="/brand/logo.png"
             alt=""
             width={20}
             height={20}
-            className="shrink-0 text-text-100"
+            unoptimized
+            className="shrink-0 rounded"
           />
           {!isCollapsed && (
             <span className="flex-1 truncate text-left text-xs font-medium text-text-100">

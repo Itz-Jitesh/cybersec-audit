@@ -35,12 +35,12 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   return (
     <div className="flex flex-col">
       <Image
-        src="/brand/logo-full.svg"
+        src="/brand/logo.png"
         alt={WORKSPACE_NAME}
-        width={140}
-        height={32}
-        priority
-        className="h-auto w-[140px] text-text-100"
+        width={100}
+        height={100}
+        unoptimized
+        className="h-auto w-[100px]"
       />
 
       <h1 className="mt-6 font-display text-2xl font-semibold text-text-100">

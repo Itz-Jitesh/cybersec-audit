@@ -125,12 +125,12 @@ export default async function InvitePage({ params }: InvitePageProps) {
   return (
     <div className="flex flex-col">
       <Image
-        src="/brand/logo-full.svg"
+        src="/brand/logo.png"
         alt={WORKSPACE_NAME}
-        width={120}
-        height={28}
-        priority
-        className="h-auto w-[120px] text-text-100"
+        width={80}
+        height={80}
+        unoptimized
+        className="h-auto w-[80px]"
       />
 
       <h1 className="mt-6 text-2xl font-semibold text-text-100">
