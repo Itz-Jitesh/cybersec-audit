@@ -1091,6 +1091,21 @@ that do not survive contact with a cross-project list:
 Closed work is hidden by default, since a worklist headed by a year of finished
 tickets is not a worklist. It is one toggle away under Display.
 
-`/drafts` is still a placeholder. It is named once in the spec, as a sidebar
-entry, with no screen described anywhere — that one needs a decision about what
-a draft even is here before it can be built.
+---
+
+## Gap A, now closed: Drafts removed, passkey line corrected
+
+`/drafts` was a sidebar row and a placeholder route and nothing else: no
+column, no query, no action, no migration ever referenced it, and the spec
+described no screen for it. Rather than invent what a draft is, the user
+removed the feature. Deleted `src/app/(app)/drafts/` entirely and dropped the
+entry from the sidebar's `PRIMARY_NAV`, the breadcrumb `ROOT_LABELS` map and
+the e2e protected-route list. `/drafts` now returns the app's not-found page.
+
+The same pass closed the passkey line, which was never implementable as
+written. Supabase `auth.mfa.enroll` accepts `totp` and `phone` only, so a
+passkey cannot be a second factor. Supabase's separate beta passkey sign-in
+yields `aal1`, which cannot satisfy the `aal2` gate `src/middleware.ts`
+enforces for `admin`, `president` and `co_president`. TOTP is therefore the
+only second factor, and passkey sign-in — if it is ever added — would be an
+additional primary sign-in method, not a replacement.

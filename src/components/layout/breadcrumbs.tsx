@@ -20,7 +20,6 @@ const ROOT_LABELS: Record<string, string> = {
   home: "Home",
   "my-issues": "My Issues",
   notifications: "Notifications",
-  drafts: "Drafts",
   admin: "Admin",
 };
 

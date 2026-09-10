@@ -5,7 +5,6 @@ import {
   ChevronsLeft,
   ChevronsRight,
   CircleDot,
-  FileText,
   Home,
   Plus,
   Settings,
@@ -55,7 +54,6 @@ const PRIMARY_NAV = [
   { href: "/home", label: "Home", icon: Home },
   { href: "/my-issues", label: "My Issues", icon: CircleDot },
   { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/drafts", label: "Drafts", icon: FileText },
 ] as const;
 
 export function AppSidebar({

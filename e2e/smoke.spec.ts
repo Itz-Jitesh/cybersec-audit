@@ -17,7 +17,6 @@ const PROTECTED = [
   "/home",
   "/my-issues",
   "/notifications",
-  "/drafts",
   "/admin",
   "/admin/members",
   "/admin/invites",

@@ -146,7 +146,7 @@ Corresponding prompts are in [[08-PROMPT-PACK]], numbered identically.
 - [ ] Role changes and deactivation, with audit entries
 - [ ] Pages: list, editor, autosave, access control
 - [ ] Project analytics tab: open/closed trend, state distribution, per-assignee load, overdue count
-- [ ] Passkey (WebAuthn) enrolment as an alternative second factor
+- Passkeys — not implementable as a second factor; Supabase MFA supports `totp` and `phone` only. Deferred.
 
 **DoD:** you can invite the real 20 members from the UI and they receive working emails.
 

@@ -40,7 +40,7 @@ Workspace (singleton: "CyberSec Atria IT")
 - OAuth sign-in with Google and GitHub only. No password auth anywhere in the codebase.
 - Sign-in is gated: a user's email must have a pending or accepted invite, or they are rejected with "This workspace is invite-only."
 - Admin invite flow: admin enters email + workspace role + optional team assignment → email sent via Resend with a signed link.
-- TOTP 2FA: optional per user, **enforced** for `admin`/`president`/`co_president`.
+- Two-factor authentication: **TOTP is the only supported second factor.** Optional per user, **enforced** for `admin`/`president`/`co_president`.
 - Profile: display name, avatar, bio, GitHub/LinkedIn handle.
 
 ### 4.2 Issues — MUST
@@ -95,6 +95,7 @@ Per-project dashboard: open vs closed over time, issues by state, issues by assi
 - Mobile native app
 - Light theme
 - Cybersecurity visual theming (Phase 13, separate effort)
+- Drafts (unsubmitted issue composition) — removed, never implemented
 
 ## 6. Non-functional requirements
 

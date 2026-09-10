@@ -24,7 +24,7 @@ Desktop-first. Breakpoint work is Phase 12. All measurements reference tokens fr
 
 ### 1.1 Sidebar contents, top to bottom
 1. **Workspace header** — logo mark (24px) + "CyberSec Atria IT" + chevron. Click opens dropdown: Settings, Invite members (admin only), Sign out.
-2. **Primary nav** — Home, My Issues, Notifications (with unread count badge), Drafts. `text-xs`, 28px row height.
+2. **Primary nav** — Home, My Issues, Notifications (with unread count badge). `text-xs`, 28px row height.
 3. **Favorites** — collapsible section, drag-reorderable, shows starred projects/cycles/views.
 4. **Teams** — one collapsible group per team (Tech / Design / R&D). Each expands to its project list. Each project expands to: Issues, Cycles, Modules, Views, Pages.
 5. **Footer** — user avatar + name, `+` new-project button, sidebar collapse toggle.

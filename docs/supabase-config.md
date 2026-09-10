@@ -53,6 +53,8 @@ https://<your-production-domain>/auth/callback
 Enrolment is enforced in `src/middleware.ts` for `admin`, `president` and
 `co_president`, not in the dashboard. A member may enrol voluntarily.
 
+Passkeys are not available as an MFA factor. Supabase auth.mfa.enroll accepts factor types totp and phone only. Supabase provides a separate beta passkey sign-in capability under the supabase.auth.passkey namespace, enabled in Dashboard under Authentication, Configuration, Passkeys. A passkey sign-in produces assurance level aal1 and therefore cannot satisfy the aal2 requirement enforced in middleware for privileged roles. If passkey sign-in is added later it is an additional primary sign-in method, not a replacement for TOTP.
+
 ## 4. Storage
 
 **Storage → Buckets**
