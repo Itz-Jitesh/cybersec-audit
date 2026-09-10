@@ -78,6 +78,7 @@ interface IssuesViewProps {
   modules: { id: string; name: string }[];
   canDelete: boolean;
   canModerate: boolean;
+  canWrite: boolean;
   currentUserId: string;
   fetchIssues: (filters?: PartialFilters) => Promise<IssueListItem[]>;
 }
@@ -94,6 +95,7 @@ export function IssuesView({
   modules,
   canDelete,
   canModerate,
+  canWrite,
   currentUserId,
   fetchIssues,
 }: IssuesViewProps) {
@@ -548,14 +550,16 @@ export function IssuesView({
         <span className="text-xs text-text-300">
           {issues.length} {issues.length === 1 ? "issue" : "issues"}
         </span>
-        <Button
-          size="sm"
-          className="gap-1.5"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus size={14} strokeWidth={1.5} />
-          New issue
-        </Button>
+        {canWrite && (
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus size={14} strokeWidth={1.5} />
+            New issue
+          </Button>
+        )}
       </div>
 
       {issues.length === 0 ? (
@@ -576,11 +580,11 @@ export function IssuesView({
               >
                 Clear filters
               </Button>
-            ) : (
+            ) : canWrite ? (
               <Button size="sm" onClick={() => setCreateOpen(true)}>
                 New issue
               </Button>
-            )
+            ) : null
           }
         />
       ) : null}

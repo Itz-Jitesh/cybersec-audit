@@ -21,6 +21,7 @@ export function IssuesClient(props: {
   modules: { id: string; name: string }[];
   canDelete: boolean;
   canModerate: boolean;
+  canWrite: boolean;
   currentUserId: string;
 }) {
   return (
