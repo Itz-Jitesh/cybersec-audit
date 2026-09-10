@@ -84,6 +84,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   president: "President",
   co_president: "Co-president",
+  mentor: "Mentor",
   member: "Member",
 };
 

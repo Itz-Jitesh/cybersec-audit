@@ -162,6 +162,7 @@ export function InvitesAdmin({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="member">Member</SelectItem>
+                <SelectItem value="mentor">Mentor</SelectItem>
                 <SelectItem value="co_president">Co-president</SelectItem>
                 <SelectItem value="president">President</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>

@@ -1,11 +1,11 @@
--- 0009_student_mentor_role.sql
--- Add student_mentor workspace role: view + comment on all teams, no admin/dev.
+-- 0009_mentor_role.sql
+-- Add mentor workspace role: view + comment on all teams, no admin/dev.
 
 -- 1. Extend the enum
-ALTER TYPE workspace_role ADD VALUE IF NOT EXISTS 'student_mentor' AFTER 'member';
+ALTER TYPE workspace_role ADD VALUE IF NOT EXISTS 'mentor' AFTER 'member';
 
--- 2. Update RLS helpers to treat student_mentor like workspace admin for reads.
---    student_mentor sees all teams and projects but cannot manage anything.
+-- 2. Update RLS helpers to treat mentor like workspace admin for reads.
+--    Mentors see all teams and projects but cannot manage anything.
 
 CREATE OR REPLACE FUNCTION is_workspace_admin(uid uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
@@ -15,7 +15,7 @@ AS $$
     SELECT 1 FROM workspace_members
     WHERE user_id = uid
       AND is_active
-      AND role IN ('admin', 'president', 'co_president', 'student_mentor')
+      AND role IN ('admin', 'president', 'co_president', 'mentor')
   );
 $$;
 

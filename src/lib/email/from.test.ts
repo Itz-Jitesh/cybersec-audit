@@ -4,7 +4,7 @@
  *   pnpm test:email
  *
  * Small, but this is the exact shape that silently broke a real invite: the
- * variable held "CyberSec Atria" and no address at all.
+ * variable held "Cybersec AIT" and no address at all.
  */
 
 import assert from "node:assert/strict";
@@ -20,13 +20,13 @@ const CASES: { from: string | undefined; expected: string; why: string }[] = [
     why: "unset falls back to the sending account",
   },
   {
-    from: "CyberSec Atria",
-    expected: `CyberSec Atria <${USER}>`,
+    from: "Cybersec AIT",
+    expected: `Cybersec AIT <${USER}>`,
     why: "a bare display name is paired with the account",
   },
   {
-    from: "CyberSec Atria <invites@club.dev>",
-    expected: "CyberSec Atria <invites@club.dev>",
+    from: "Cybersec AIT <invites@club.dev>",
+    expected: "Cybersec AIT <invites@club.dev>",
     why: "a full header is left alone",
   },
   {

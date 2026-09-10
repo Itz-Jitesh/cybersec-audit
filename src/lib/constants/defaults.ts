@@ -85,4 +85,4 @@ export const DEFAULT_TEAMS = [
   { name: "R&D", slug: "rnd", color: "#14b8a6" },
 ] as const;
 
-export const WORKSPACE_NAME = "CyberSec Atria IT";
+export const WORKSPACE_NAME = "Cybersec AIT";

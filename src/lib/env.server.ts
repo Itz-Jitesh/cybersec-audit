@@ -75,7 +75,7 @@ const serverSchema = clientSchema.extend({
   ),
   SMTP_USER: optionalText,
   SMTP_PASSWORD: optionalText,
-  /** e.g. "CyberSec Atria <club.invites@gmail.com>". Defaults to SMTP_USER. */
+  /*   * e.g. "Cybersec AIT <club.invites@gmail.com>". Defaults to SMTP_USER. */
   SMTP_FROM: optionalText,
   SEED_ADMIN_EMAIL: z.preprocess(
     (value) =>

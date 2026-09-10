@@ -29,7 +29,7 @@ import {
  * throws, and nothing here reads the row it is deciding about.
  */
 
-export type WorkspaceRole = "admin" | "president" | "co_president" | "student_mentor" | "member";
+export type WorkspaceRole = "admin" | "president" | "co_president" | "mentor" | "member";
 export type TeamRole = "lead" | "member";
 export type ProjectRole = "admin" | "member";
 
@@ -56,7 +56,7 @@ export const isActiveMember = cache(
   },
 );
 
-/** admin, president or co_president — the three workspace-level roles. */
+/** admin, president or co_president — the three workspace-level admin roles. */
 export const isWorkspaceAdmin = cache(
   async (userId: string): Promise<boolean> => {
     const rows = await db
@@ -71,6 +71,24 @@ export const isWorkspaceAdmin = cache(
             eq(workspaceMembers.role, "president"),
             eq(workspaceMembers.role, "co_president"),
           ),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+);
+
+/** Mentor — read access to all teams and projects, no management. */
+export const isMentor = cache(
+  async (userId: string): Promise<boolean> => {
+    const rows = await db
+      .select({ role: workspaceMembers.role })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.userId, userId),
+          eq(workspaceMembers.isActive, true),
+          eq(workspaceMembers.role, "mentor"),
         ),
       )
       .limit(1);
@@ -100,11 +118,17 @@ export const isTeamLead = cache(
 );
 
 /**
- * Workspace admin, direct project member, or member of the project's team —
- * the same three-way union the policies compute.
+ * Workspace admin, mentor, direct project member, or member of the project's
+ * team — the same four-way union the policies compute.
  */
 export const isProjectMember = cache(
   async (userId: string, projectId: string): Promise<boolean> => {
+    if (await isWorkspaceAdmin(userId)) {
+      return true;
+    }
+    if (await isMentor(userId)) {
+      return true;
+    }
     const rows = await db
       .select({ projectId: projects.id })
       .from(projects)

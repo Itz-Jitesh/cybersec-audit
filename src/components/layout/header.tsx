@@ -120,6 +120,9 @@ export function Header({
           <div className="px-2 py-1.5">
             <p className="truncate text-sm text-text-100">{user.displayName}</p>
             <p className="truncate text-xs text-text-400">{user.email}</p>
+            <p className="mt-0.5 capitalize text-2xs text-text-300">
+              {user.role.replace("_", " ")}
+            </p>
           </div>
           <DropdownMenuSeparator />
           {/*
