@@ -521,6 +521,9 @@ export function IssuesView({
           modules={modules}
           groupBy={groupBy}
           properties={displayProps.properties}
+          // Undefined on a display-props object stored before this toggle
+          // existed, which is the default anyway.
+          showEmptyGroups={displayProps.showEmptyGroups ?? false}
           selectedIds={selected}
           canDelete={canDelete}
           handlers={handlers}

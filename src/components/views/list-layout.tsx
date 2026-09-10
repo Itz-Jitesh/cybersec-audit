@@ -28,6 +28,8 @@ interface ListLayoutProps {
   modules: { id: string; name: string }[];
   groupBy: IssueFilters["groupBy"];
   properties: DisplayProperties;
+  /** Display toggle. Empty groups are hidden unless this is on. */
+  showEmptyGroups: boolean;
   selectedIds: Set<string>;
   canDelete: boolean;
   handlers: IssueRowHandlers;
@@ -263,6 +265,7 @@ export function ListLayout({
   modules,
   groupBy,
   properties,
+  showEmptyGroups,
   selectedIds,
   canDelete,
   handlers,
@@ -298,6 +301,11 @@ export function ListLayout({
       const items = grouped.get(group.id) ?? [];
       const collapsed = collapsedIds.includes(group.id);
 
+      // A group with nothing in it is a header and a quick-add and no work.
+      // Six of those around one issue is noise, so they are dropped unless the
+      // Display popover asks for them.
+      if (items.length === 0 && !showEmptyGroups) continue;
+
       flat.push({ kind: "header", group, count: items.length, collapsed });
       if (collapsed || items.length === 0) continue;
 
@@ -308,7 +316,7 @@ export function ListLayout({
     }
 
     return flat;
-  }, [collapsedIds, groupBy, grouped, groups]);
+  }, [collapsedIds, groupBy, grouped, groups, showEmptyGroups]);
 
   const heights = useMemo(
     () =>

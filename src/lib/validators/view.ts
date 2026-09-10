@@ -43,6 +43,12 @@ export const displayPropsSchema = z.object({
   groupBy: groupBySchema.default("state"),
   orderBy: orderBySchema.default("sort_order"),
   showSubIssues: z.boolean().default(true),
+  /**
+   * Off by default: a fresh project has six states and one issue, and drawing
+   * all six headers buries the one row that exists. Grouping is there to
+   * organise work, not to inventory the state list.
+   */
+  showEmptyGroups: z.boolean().default(false),
   properties: displayPropertiesSchema.prefault({}),
 });
 

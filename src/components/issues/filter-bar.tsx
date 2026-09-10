@@ -484,6 +484,33 @@ export function FilterBar({
               </span>
             </button>
 
+            {/*
+              Off by default. A new project has six states and one issue, and
+              drawing every empty header buries the single row that exists —
+              so the empty groups live behind this toggle rather than always
+              being on screen.
+            */}
+            <button
+              type="button"
+              aria-pressed={displayProps.showEmptyGroups}
+              onClick={() =>
+                onDisplayPropsChange({
+                  ...displayProps,
+                  showEmptyGroups: !displayProps.showEmptyGroups,
+                })
+              }
+              className="mt-2 flex w-full items-center justify-between rounded-md px-1.5 py-1 text-xs text-text-300 hover:bg-bg-80 hover:text-text-100"
+            >
+              Empty groups
+              <span
+                className={cn(
+                  displayProps.showEmptyGroups ? "text-brand" : "text-text-400",
+                )}
+              >
+                {displayProps.showEmptyGroups ? "Shown" : "Hidden"}
+              </span>
+            </button>
+
             <p className="px-1 pt-3 pb-1 text-2xs text-text-400 uppercase">
               Properties
             </p>
