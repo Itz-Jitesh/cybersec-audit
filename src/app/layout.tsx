@@ -1,5 +1,7 @@
 import "./globals.css";
 
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
@@ -36,6 +38,8 @@ export default function RootLayout({
         <Providers>{children}</Providers>
         {/* Every server action reports its outcome through a toast. */}
         <Toaster position="bottom-right" />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

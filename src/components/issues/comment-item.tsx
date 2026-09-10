@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/popover";
 import type { CommentRow } from "@/db/queries/issues";
 import { cn } from "@/lib/utils";
-import { sanitizeRichText } from "@/lib/utils/sanitize-html";
+import { sanitizeRichText } from "@/lib/utils/sanitize-html-client";
 
 /**
  * A fixed set rather than a full emoji picker. These are the reactions a
