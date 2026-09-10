@@ -7,35 +7,35 @@
 --------------------------------------------------------------------------- */
 
 :root {
-  /* surfaces — 100 is deepest, ascending = lighter/raised. Cool blue-black scale. */
-  --bg-100: #0f1218;
-  --bg-90: #151921;
-  --bg-80: #1c212b;
-  --bg-70: #252b38;
-  --bg-60: #2f3644;
+  /* surfaces — solid charcoal scale, no texture */
+  --bg-100: #111113;
+  --bg-90: #18181b;
+  --bg-80: #1f1f23;
+  --bg-70: #27272a;
+  --bg-60: #2e2e33;
 
-  /* text — cool-toned, slightly blue-shifted grays */
-  --text-100: #e2e5ea;
-  --text-200: #a3aab8;
-  --text-300: #6b7280;
-  --text-400: #454d5c;
+  /* text */
+  --text-100: #fafafa;
+  --text-200: #a1a1aa;
+  --text-300: #71717a;
+  --text-400: #52525b;
 
-  /* borders — dark blue-gray, not neutral */
-  --border-subtle: #1e2430;
-  --border-strong: #2c3344;
-  --border-focus: #2dd4a8;
+  /* borders */
+  --border-subtle: #27272a;
+  --border-strong: #3f3f46;
+  --border-focus: #6366f1;
 
-  /* accent — teal-mint, restrained not neon */
-  --accent: #2dd4a8;
-  --accent-hover: #25b892;
-  --accent-subtle: #2dd4a81a;
-  --on-accent: #0f1218;
+  /* accent — indigo, used sparingly */
+  --accent: #6366f1;
+  --accent-hover: #5558e6;
+  --accent-subtle: #6366f114;
+  --on-accent: #ffffff;
 
   /* semantic */
   --success: #22c55e;
-  --warning: #f0a54a;
+  --warning: #eab308;
   --danger: #ef4444;
-  --info: #2dd4a8;
+  --info: #6366f1;
 
   /* Text that sits on a filled danger surface, and the scrim behind a modal.
      Both existed as literal `text-white` and `bg-black/50` inside the shadcn
@@ -53,9 +53,9 @@
   --priority-none: #6b7280;
 
   /* state groups */
-  --state-backlog: #454d5c;
-  --state-unstarted: #6b7280;
-  --state-started: #f0a54a;
+  --state-backlog: #52525b;
+  --state-unstarted: #71717a;
+  --state-started: #eab308;
   --state-completed: #22c55e;
   --state-cancelled: #ef4444;
 
@@ -263,22 +263,6 @@
     font-size: 13px;
     line-height: 20px;
     -webkit-font-smoothing: antialiased;
-    /* Fine grid — ambient precision, not decoration. 48px cells, 3% white. */
-    background-image:
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 47px,
-        rgba(255, 255, 255, 0.03) 47px,
-        rgba(255, 255, 255, 0.03) 48px
-      ),
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 47px,
-        rgba(255, 255, 255, 0.03) 47px,
-        rgba(255, 255, 255, 0.03) 48px
-      );
   }
 
   /* Density comes from weight restraint. Nothing in this app goes above 600. */
@@ -295,26 +279,6 @@
   ::selection {
     background-color: var(--accent-subtle);
   }
-}
-
-/* Auth page grid — more visible than the body grid for atmosphere. */
-.auth-grid {
-  background-color: var(--bg-100);
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 47px,
-      rgba(255, 255, 255, 0.04) 47px,
-      rgba(255, 255, 255, 0.04) 48px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 47px,
-      rgba(255, 255, 255, 0.04) 47px,
-      rgba(255, 255, 255, 0.04) 48px
-    );
 }
 
 @media (prefers-reduced-motion: reduce) {
