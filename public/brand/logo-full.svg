@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 56" fill="none" role="img" aria-label="CyberSec Atria I.T">
-  <circle cx="28" cy="28" r="21" stroke="currentColor" stroke-opacity="0.45" stroke-width="2"/>
+  <circle cx="28" cy="28" r="21" stroke="currentColor" stroke-width="2"/>
   <path d="M28 13 L41 20 V31 C41 38 35 43 28 45 C21 43 15 38 15 31 V20 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
   <text x="66" y="26" font-family="Inter, system-ui, sans-serif" font-size="15" font-weight="600" letter-spacing="0.14em" fill="currentColor">CYBERSEC</text>
-  <text x="66" y="43" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="500" letter-spacing="0.20em" fill="currentColor" fill-opacity="0.62">ATRIA I.T</text>
+  <text x="66" y="43" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="500" letter-spacing="0.20em" fill="currentColor">ATRIA I.T</text>
 </svg>

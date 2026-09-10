@@ -32,6 +32,9 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "CyberSec Atria IT",
   description: "Project tracker for the CyberSec Atria IT club.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
