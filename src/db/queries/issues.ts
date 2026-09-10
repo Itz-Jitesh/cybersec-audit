@@ -239,8 +239,16 @@ export async function getIssuesForProject(
       sortOrder: issues.sortOrder,
       archivedAt: issues.archivedAt,
       createdAt: issues.createdAt,
-      subIssueCount: sql<number>`coalesce(sub.total, 0)`,
-      completedSubIssueCount: sql<number>`coalesce(sub.done, 0)`,
+      subIssueCount: sql<number>`coalesce((
+        select count(*)::int from issues c
+        where c.parent_id = ${issues.id} and c.archived_at is null
+      ), 0)`,
+      completedSubIssueCount: sql<number>`coalesce((
+        select count(*)::int from issues c
+        join states cs on cs.id = c.state_id
+        where c.parent_id = ${issues.id} and c.archived_at is null
+          and cs.group = 'completed'
+      ), 0)`,
       assignees: sql<IssueAssignee[]>`coalesce((
         select json_agg(json_build_object(
           'id', p.id, 'displayName', p.display_name, 'avatarUrl', p.avatar_url
@@ -267,16 +275,6 @@ export async function getIssuesForProject(
     .innerJoin(states, eq(states.id, issues.stateId))
     .innerJoin(projects, eq(projects.id, issues.projectId))
     .leftJoin(cycles, eq(cycles.id, issues.cycleId))
-    .leftJoin(
-      sql`lateral (
-        select count(*)::int as total,
-               count(*) filter (where cs.group = 'completed')::int as done
-        from issues c
-        join states cs on cs.id = c.state_id
-        where c.parent_id = ${issues.id} and c.archived_at is null
-      ) sub`,
-      sql`true`,
-    )
     .where(and(...conditions))
     .orderBy(...buildOrderBy(filters))
     .limit(filters.limit)

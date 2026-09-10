@@ -34,6 +34,7 @@ export const metadata: Metadata = {
   description: "Project tracker for the Cybersec AIT club.",
   icons: {
     icon: "/brand/logo.png",
+    apple: "/brand/logo.png",
   },
 };
 
