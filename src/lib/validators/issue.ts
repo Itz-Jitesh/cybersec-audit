@@ -8,6 +8,14 @@ export const prioritySchema = z.enum([
   "none",
 ]);
 
+export const stateGroupSchema = z.enum([
+  "backlog",
+  "unstarted",
+  "started",
+  "completed",
+  "cancelled",
+]);
+
 export const relationTypeSchema = z.enum([
   "blocks",
   "blocked_by",
@@ -176,7 +184,7 @@ export const sortDirectionSchema = z.enum(["asc", "desc"]);
 export const issueFilterSchema = z.object({
   projectId: z.string().uuid(),
   stateIds: z.array(z.string().uuid()).optional(),
-  stateGroups: z.array(z.enum(["backlog", "unstarted", "started", "completed", "cancelled"])).optional(),
+  stateGroups: z.array(stateGroupSchema).optional(),
   priorities: z.array(prioritySchema).optional(),
   assigneeIds: z.array(z.string().uuid()).optional(),
   labelIds: z.array(z.string().uuid()).optional(),

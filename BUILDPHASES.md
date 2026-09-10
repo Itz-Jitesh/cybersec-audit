@@ -1046,3 +1046,51 @@ current itself.
 
 Cost: 11 kB on the issue-detail route, 142 kB to 153 kB. jsdom stays on the
 server — verified absent from the client bundle. 39 assertions green.
+
+---
+
+## Unassigned item, now closed: `/my-issues`
+
+`/my-issues` appears in `docs/06-UX-LAYOUT-SPEC.md` §6 but in no phase
+checklist, so it stayed a placeholder while the rest of the app came to depend
+on it: the sidebar links to it, the command palette has a "Go to my issues"
+action, the notification bell sends unread rows to `/my-issues?issue=…`, and
+five server actions call `revalidatePath("/my-issues")` after every write.
+
+**The security part, which is the reason this needed its own query.** Being
+assigned to an issue is not permission to read it. Assignment rows survive a
+member leaving a team, so a naive "where assignee = me" would have shown a
+former member that team's work indefinitely, long after they lost access to it
+everywhere else. `getMyIssues` mirrors `is_project_member`: a member of the
+project, or of the team that owns it, with workspace admins seeing everything.
+
+`supabase/tests/my-issues.sql` asserts that rule in five assertions, including
+the one that matters — after the team membership is deleted the assignment row
+is still there and the issue is no longer visible. Note honestly what that
+suite is: reads here go through Drizzle as `postgres`, which has BYPASSRLS, so
+the rule lives in a WHERE clause rather than a policy. The suite writes that
+predicate out and asserts it. It proves the rule is right, not that the
+TypeScript builds it correctly.
+
+**Where this departs from the spec, and why.** §6 asks for "identical machinery
+to the project issue view — filter bar, four layouts, group-by". Two parts of
+that do not survive contact with a cross-project list:
+
+- **State, label and cycle filters are gone.** Each of those ids belongs to one
+  project. The same "Todo" is a different row in every project, so filtering by
+  one is meaningless across a list that spans them. What is left is what
+  compares everywhere: the state's *group*, the priority, and the project.
+- **One layout, not four.** Kanban columns are states, and there is no single
+  state ladder here to build them from; unifying them by group would produce a
+  board whose columns do not match any project's actual workflow. Grouping by
+  state group, priority or project covers the same need in the list.
+- **No inline editing.** A state dropdown needs that project's states, and this
+  list spans projects whose ladders differ. Rows link to the issue, where the
+  whole context is present.
+
+Closed work is hidden by default, since a worklist headed by a year of finished
+tickets is not a worklist. It is one toggle away under Display.
+
+`/drafts` is still a placeholder. It is named once in the spec, as a sidebar
+entry, with no screen described anywhere — that one needs a decision about what
+a draft even is here before it can be built.
