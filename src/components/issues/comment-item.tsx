@@ -84,7 +84,7 @@ export function CommentItem({
                 <button
                   type="button"
                   aria-label="Comment actions"
-                  className="rounded-sm p-1 text-text-400 hover:bg-bg-70 hover:text-text-100"
+                  className="flex size-10 items-center justify-center rounded-sm text-text-400 hover:bg-bg-70 hover:text-text-100 sm:size-7"
                 >
                   <MoreHorizontal size={14} strokeWidth={1.5} />
                 </button>
@@ -147,7 +147,7 @@ export function CommentItem({
               <button
                 type="button"
                 aria-label="Add reaction"
-                className="rounded-full p-1 text-text-400 hover:bg-bg-80 hover:text-text-200"
+                className="flex size-10 items-center justify-center rounded-full text-text-400 hover:bg-bg-80 hover:text-text-200 sm:size-6"
               >
                 <SmilePlus size={14} strokeWidth={1.5} />
               </button>
@@ -158,7 +158,7 @@ export function CommentItem({
                   key={emoji}
                   type="button"
                   onClick={() => react(emoji)}
-                  className="rounded-sm p-1 text-base hover:bg-bg-70"
+                  className="flex size-10 items-center justify-center rounded-sm text-base hover:bg-bg-70 sm:size-8"
                   aria-label={`React with ${emoji}`}
                 >
                   {emoji}

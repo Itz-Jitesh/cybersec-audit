@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { writeAudit } from "@/actions/audit";
@@ -13,7 +13,13 @@ import {
   ok,
 } from "@/actions/result";
 import { db } from "@/db";
-import { invites, profiles, teams, workspaceMembers } from "@/db/schema";
+import {
+  auditLog,
+  invites,
+  profiles,
+  teams,
+  workspaceMembers,
+} from "@/db/schema";
 import { assertCan } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { WORKSPACE_NAME } from "@/lib/constants/defaults";
@@ -29,6 +35,50 @@ import { bulkInviteSchema, inviteIdSchema } from "@/lib/validators/admin";
  * is why a mail failure never rolls the invite back — it is reported instead,
  * and the panel shows the link so an admin can pass it on by hand.
  */
+
+/**
+ * Rate limits, per admin, per hour.
+ *
+ * An invite endpoint is an outbound-mail endpoint: whoever can call it can
+ * make the club's mailbox send to arbitrary addresses, and a compromised or
+ * careless admin account is enough to get that mailbox flagged as a spam
+ * source. The club has about thirty members, so these ceilings are far above
+ * any legitimate use and still low enough to matter.
+ *
+ * Counted in Postgres rather than in memory on purpose: an in-process counter
+ * resets on every deploy and is per-instance, so on serverless it limits
+ * almost nothing. invites.created_at and the audit log are already written for
+ * other reasons, which makes them free to count.
+ */
+const INVITES_PER_HOUR = 60;
+const RESENDS_PER_HOUR = 30;
+
+async function countRecent(
+  actorId: string,
+  what: "created" | "resent",
+): Promise<number> {
+  const since = new Date(Date.now() - 60 * 60 * 1000);
+
+  if (what === "created") {
+    const [row] = await db
+      .select({ value: sql<number>`count(*)` })
+      .from(invites)
+      .where(and(eq(invites.invitedBy, actorId), gt(invites.createdAt, since)));
+    return Number(row?.value ?? 0);
+  }
+
+  const [row] = await db
+    .select({ value: sql<number>`count(*)` })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.actorId, actorId),
+        eq(auditLog.action, "invite.resent"),
+        gt(auditLog.createdAt, since),
+      ),
+    );
+  return Number(row?.value ?? 0);
+}
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -56,6 +106,14 @@ export async function sendInvites(
     if (!user) return fail("You must be signed in.", "UNAUTHENTICATED");
 
     const { emails, role, teamId, teamRole } = parsed.data;
+
+    const recent = await countRecent(user.id, "created");
+    if (recent + emails.length > INVITES_PER_HOUR) {
+      return fail(
+        `That would pass ${INVITES_PER_HOUR} invites in an hour. Wait a while, or ask another admin to send the rest.`,
+        "CONFLICT",
+      );
+    }
 
     // A team that does not exist would otherwise be written as a dangling
     // reference and silently drop the team assignment on acceptance.
@@ -209,6 +267,25 @@ export async function resendInvite(
       .limit(1);
 
     if (!row) return fail("That invite is no longer open.", "NOT_FOUND");
+
+    const recent = await countRecent(user.id, "resent");
+    if (recent >= RESENDS_PER_HOUR) {
+      return fail(
+        `That is ${RESENDS_PER_HOUR} resends in an hour. Wait a while before sending more.`,
+        "CONFLICT",
+      );
+    }
+
+    // Written before the send rather than after, so a provider that hangs
+    // still costs the caller their quota — otherwise the limit is bypassed by
+    // whatever fails slowly.
+    await writeAudit({
+      actorId: user.id,
+      action: "invite.resent",
+      entityType: "invite",
+      entityId: parsed.data.inviteId,
+      metadata: { email: row.email },
+    });
 
     const sent = await sendInviteEmail({
       to: row.email,

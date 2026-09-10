@@ -10,6 +10,21 @@ import { clientSchema, formatEnvError, rawClientEnv } from "@/lib/env";
  * would put those names in the browser bundle.
  */
 
+/**
+ * An unset variable and a variable set to nothing are the same thing.
+ *
+ * `.env` files ship optional keys with empty values so they are visible and
+ * ready to fill in. Without this, `SMTP_USER=` arrives as "" rather than
+ * undefined, `.optional()` never applies, and a minimum-length rule fails for
+ * a variable nobody has configured yet. Handled in the schema rather than at
+ * the call site so it holds no matter who reads the value.
+ */
+const optionalText = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim().length === 0 ? undefined : value,
+  z.string().min(1).optional(),
+);
+
 const serverSchema = clientSchema.extend({
   /**
    * Optional at boot, and deliberately so. Nothing in the request path uses it:
@@ -20,14 +35,20 @@ const serverSchema = clientSchema.extend({
    *
    * Also accepted under its newer name, SUPABASE_SECRET_KEY.
    */
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  SUPABASE_SERVICE_ROLE_KEY: optionalText,
   /** Session pooler (5432). Migrations, the seed and the test runners. */
   DATABASE_URL: z.string().url(),
   /**
    * Transaction pooler (6543). What runtime queries should use. Optional so a
    * developer machine works with one URL, but production wants both.
    */
-  DATABASE_POOL_URL: z.string().url().optional(),
+  DATABASE_POOL_URL: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim().length === 0
+        ? undefined
+        : value,
+    z.string().url().optional(),
+  ),
   /**
    * SMTP for the invite email.
    *
@@ -44,15 +65,27 @@ const serverSchema = clientSchema.extend({
    * SMTP_PASSWORD is an app password, never an account password, and it is
    * read only here on the server.
    */
-  SMTP_HOST: z.string().min(1).optional(),
-  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
-  SMTP_USER: z.string().min(1).optional(),
-  SMTP_PASSWORD: z.string().min(1).optional(),
+  SMTP_HOST: optionalText,
+  SMTP_PORT: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim().length === 0
+        ? undefined
+        : value,
+    z.coerce.number().int().min(1).max(65535).default(465),
+  ),
+  SMTP_USER: optionalText,
+  SMTP_PASSWORD: optionalText,
   /** e.g. "CyberSec Atria <club.invites@gmail.com>". Defaults to SMTP_USER. */
-  SMTP_FROM: z.string().min(1).optional(),
-  SEED_ADMIN_EMAIL: z.string().email().optional(),
+  SMTP_FROM: optionalText,
+  SEED_ADMIN_EMAIL: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim().length === 0
+        ? undefined
+        : value,
+    z.string().email().optional(),
+  ),
   /** Shared secret Vercel Cron sends as `Authorization: Bearer <value>`. */
-  CRON_SECRET: z.string().min(1).optional(),
+  CRON_SECRET: optionalText,
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

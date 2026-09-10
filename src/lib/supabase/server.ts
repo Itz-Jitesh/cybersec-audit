@@ -3,7 +3,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-import { serverEnv } from "@/lib/env.server";
+import { clientEnv } from "@/lib/env";
 
 /**
  * Server Supabase client bound to the request's cookie jar. Uses the anon key
@@ -12,7 +12,9 @@ import { serverEnv } from "@/lib/env.server";
  */
 export async function createClient() {
   const cookieStore = await cookies();
-  const env = serverEnv();
+  // Same reason as the middleware client: only the two public values are
+  // needed, so this must not depend on every server secret parsing.
+  const env = clientEnv;
 
   return createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,

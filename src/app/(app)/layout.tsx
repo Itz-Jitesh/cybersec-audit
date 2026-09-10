@@ -1,6 +1,7 @@
 import { signOut } from "@/actions/auth";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Header } from "@/components/layout/header";
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { getUnreadNotificationCount } from "@/db/queries/home";
 import { getNavigationTree } from "@/db/queries/navigation";
 import { getWorkspaceMembers } from "@/db/queries/project";
@@ -34,15 +35,36 @@ export default async function AppLayout({
 
   return (
     <div className="flex h-dvh overflow-hidden">
-      <AppSidebar
-        user={user}
-        tree={tree}
-        canInvite={isAdmin}
-        canCreateProject={canCreateProject}
-        workspaceMembers={workspaceMembers}
-        unreadCount={unreadCount}
-        signOutAction={signOut}
-      />
+      {/*
+        Rendered twice with the same props: once docked, once inside the
+        drawer. Below 1024px the docked copy is hidden and the drawer is the
+        only way to the navigation, which is what the responsive pass in
+        docs/07-BUILD-PHASES.md phase 12 asks for.
+      */}
+      <div className="hidden lg:flex">
+        <AppSidebar
+          user={user}
+          tree={tree}
+          canInvite={isAdmin}
+          canCreateProject={canCreateProject}
+          workspaceMembers={workspaceMembers}
+          unreadCount={unreadCount}
+          signOutAction={signOut}
+        />
+      </div>
+
+      <MobileNav>
+        <AppSidebar
+          user={user}
+          tree={tree}
+          canInvite={isAdmin}
+          canCreateProject={canCreateProject}
+          workspaceMembers={workspaceMembers}
+          unreadCount={unreadCount}
+          signOutAction={signOut}
+          inDrawer
+        />
+      </MobileNav>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Header

@@ -15,19 +15,11 @@ import { updateSession } from "@/lib/supabase/middleware";
 /** Reachable without a session. Everything else redirects to /sign-in. */
 const PUBLIC_PREFIXES = ["/sign-in", "/auth/callback", "/invite"];
 
-/**
- * The design-system reference routes under /dev hold no data and exist to be
- * looked at while building. They are open in development only, and the whole
- * directory is deleted in phase 12, so they are never reachable in production
- * even by an authenticated member.
- */
-const DEV_PREFIXES = process.env.NODE_ENV === "production" ? [] : ["/dev"];
-
 /** Roles that must satisfy aal2 before reaching anything else. */
 const MFA_REQUIRED_ROLES = new Set(["admin", "president", "co_president"]);
 
 function isPublic(pathname: string): boolean {
-  return [...PUBLIC_PREFIXES, ...DEV_PREFIXES].some(
+  return PUBLIC_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }

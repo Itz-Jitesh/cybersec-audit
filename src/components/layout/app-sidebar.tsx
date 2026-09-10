@@ -43,6 +43,12 @@ interface AppSidebarProps {
   workspaceMembers: MemberRow[];
   unreadCount: number;
   signOutAction: () => Promise<void>;
+  /**
+   * Rendered inside the mobile drawer. The drawer supplies its own width and
+   * its own close control, so the collapse toggle and the collapsed layout
+   * make no sense there — a 60px rail inside a 250px drawer is nothing.
+   */
+  inDrawer?: boolean;
 }
 
 const PRIMARY_NAV = [
@@ -60,6 +66,7 @@ export function AppSidebar({
   workspaceMembers,
   unreadCount,
   signOutAction,
+  inDrawer = false,
 }: AppSidebarProps) {
   const pathname = usePathname();
   const [createOpen, setCreateOpen] = useState(false);
@@ -68,9 +75,12 @@ export function AppSidebar({
   // Hydration stays false on the server, so the defaults below (expanded,
   // unfolded) are exactly what the server rendered. Once localStorage merges,
   // these flip to the stored values without touching the server HTML.
-  const isCollapsed = useSidebarStore((state) =>
+  const storedCollapsed = useSidebarStore((state) =>
     hydrated ? state.isCollapsed : false,
   );
+  // The drawer is never collapsed: it is already an overlay the user opened
+  // on purpose, and a rail inside it would be a control with nothing to do.
+  const isCollapsed = inDrawer ? false : storedCollapsed;
   const toggleCollapsed = useSidebarStore((state) => state.toggleCollapsed);
   const toggleSection = useSidebarStore((state) => state.toggleSection);
   // Selected as a value rather than through isExpanded(): that helper is a
@@ -104,8 +114,11 @@ export function AppSidebar({
   return (
     <aside
       className={cn(
-        "flex h-dvh shrink-0 flex-col border-r border-border-subtle bg-bg-90 transition-[width] duration-[160ms] ease-out",
-        isCollapsed ? "w-sidebar-collapsed" : "w-sidebar",
+        "flex h-dvh shrink-0 flex-col bg-bg-90",
+        inDrawer
+          ? "w-full"
+          : "border-r border-border-subtle transition-[width] duration-[160ms] ease-out",
+        !inDrawer && (isCollapsed ? "w-sidebar-collapsed" : "w-sidebar"),
       )}
     >
       {/* Workspace header */}
@@ -261,6 +274,7 @@ export function AppSidebar({
         <button
           type="button"
           onClick={toggleCollapsed}
+          hidden={inDrawer}
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar (⌘\\)"}
           className="rounded-sm p-1 text-text-300 transition-colors duration-[120ms] ease-out hover:bg-bg-80 hover:text-text-100"

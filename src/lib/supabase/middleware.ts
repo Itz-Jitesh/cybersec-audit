@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
-import { serverEnv } from "@/lib/env.server";
+import { clientEnv } from "@/lib/env";
 
 /**
  * Refreshes the Supabase session cookie on every request and returns the
@@ -11,7 +11,12 @@ import { serverEnv } from "@/lib/env.server";
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
-  const env = serverEnv();
+  // clientEnv, not serverEnv: this needs the Supabase URL and anon key and
+  // nothing else. Validating the whole server schema here meant a single
+  // malformed secret — a mail password, a cron token — threw inside middleware
+  // and took down every route in the app, including /sign-in, with an error
+  // about a variable that has nothing to do with serving the page.
+  const env = clientEnv;
 
   const supabase = createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,

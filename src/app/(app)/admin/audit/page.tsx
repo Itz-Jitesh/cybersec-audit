@@ -11,6 +11,7 @@ const PAGE_SIZE = 100;
 const ACTION_TEXT: Record<string, string> = {
   "invite.sent": "sent an invite",
   "invite.revoked": "revoked an invite",
+  "invite.resent": "resent an invite",
   "member.role_changed": "changed a role",
   "member.deactivated": "deactivated a member",
   "member.reactivated": "reactivated a member",

@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Search } from "lucide-react";
+import { Menu, Plus, Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { NavigationTree } from "@/db/queries/navigation";
 import type { CurrentUser } from "@/lib/auth/session";
+import { useSidebarStore } from "@/stores/sidebar-store";
 
 interface HeaderProps {
   user: CurrentUser;
@@ -36,6 +37,7 @@ export function Header({
 }: HeaderProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [, startTransition] = useTransition();
+  const setMobileNavOpen = useSidebarStore((state) => state.setMobileNavOpen);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -65,7 +67,18 @@ export function Header({
   }, []);
 
   return (
-    <header className="flex h-header shrink-0 items-center gap-3 border-b border-border-subtle px-4">
+    <header className="flex h-header shrink-0 items-center gap-2 border-b border-border-subtle px-3 sm:gap-3 sm:px-4">
+      {/* The only way to the navigation below 1024px, where the docked
+          sidebar is hidden. 40px square, the touch-target floor. */}
+      <button
+        type="button"
+        aria-label="Open navigation"
+        onClick={() => setMobileNavOpen(true)}
+        className="-ml-1 flex size-10 shrink-0 items-center justify-center rounded-md text-text-300 transition-colors duration-[120ms] ease-out hover:bg-bg-80 hover:text-text-100 lg:hidden"
+      >
+        <Menu size={18} strokeWidth={1.5} />
+      </button>
+
       <div className="min-w-0 flex-1">
         <Breadcrumbs tree={tree} />
       </div>
@@ -74,10 +87,12 @@ export function Header({
         type="button"
         onClick={() => setPaletteOpen(true)}
         aria-label="Search"
-        className="flex h-7 items-center gap-2 rounded-md px-2 text-text-300 transition-colors duration-[120ms] ease-out hover:bg-bg-80 hover:text-text-100"
+        className="flex size-10 shrink-0 items-center justify-center gap-2 rounded-md text-text-300 transition-colors duration-[120ms] ease-out hover:bg-bg-80 hover:text-text-100 sm:h-7 sm:w-auto sm:px-2"
       >
         <Search size={14} strokeWidth={1.5} />
-        <Kbd keys={["⌘", "K"]} />
+        <span className="hidden sm:inline">
+          <Kbd keys={["⌘", "K"]} />
+        </span>
       </button>
 
       {projectId && (
@@ -89,7 +104,7 @@ export function Header({
           }
         >
           <Plus size={14} strokeWidth={1.5} />
-          New issue
+          <span className="hidden sm:inline">New issue</span>
         </Button>
       )}
 

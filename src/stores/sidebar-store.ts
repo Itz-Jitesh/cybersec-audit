@@ -14,6 +14,13 @@ interface SidebarState {
    */
   hasHydrated: boolean;
   setHydratedTrue: () => void;
+  /**
+   * The drawer state below 1024px. Deliberately not persisted: a drawer that
+   * reopens itself on the next page load is a bug, not a preference, which is
+   * why it is excluded from partialize below.
+   */
+  mobileNavOpen: boolean;
+  setMobileNavOpen: (open: boolean) => void;
   toggleCollapsed: () => void;
   setCollapsed: (collapsed: boolean) => void;
   toggleSection: (id: string) => void;
@@ -32,6 +39,8 @@ export const useSidebarStore = create<SidebarState>()(
       isCollapsed: false,
       expanded: {},
       hasHydrated: false,
+      mobileNavOpen: false,
+      setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
       setHydratedTrue: () => set({ hasHydrated: true }),
       toggleCollapsed: () =>
         set((state) => ({ isCollapsed: !state.isCollapsed })),
@@ -44,6 +53,12 @@ export const useSidebarStore = create<SidebarState>()(
     }),
     {
       name: "sidebar-state",
+      // Only the two real preferences are stored. mobileNavOpen is session
+      // state and would otherwise be restored open on the next visit.
+      partialize: (state) => ({
+        isCollapsed: state.isCollapsed,
+        expanded: state.expanded,
+      }),
       // Render the server defaults until the localStorage snapshot has merged.
       // Otherwise the first client render reads stored collapsed/expanded
       // values the server never saw, and React throws a hydration mismatch.

@@ -876,17 +876,85 @@ decision at some point; not changed unilaterally.
 
 ---
 
-## Phase 12 — Hardening, responsive, deploy `[ ]`
+## Phase 12 — Hardening, responsive, deploy  `[~]` code complete, deploy pending
 
-- [ ] Delete `/dev/kitchen-sink` and every seed or debug route
-- [ ] Responsive pass: sidebar to drawer below 1024px, kanban horizontal scroll, detail panel to full-screen sheet, touch targets at least 40px
-- [ ] Playwright smoke suite
-- [ ] Lighthouse: performance at least 85, accessibility at least 95
-- [ ] Confirm `SUPABASE_SERVICE_ROLE_KEY` is absent from the client bundle
-- [ ] Rate-limit the invite endpoint
-- [ ] Production Supabase config: email/password disabled, redirect allowlist, PITR if on Pro
-- [ ] Custom domain and production env vars on Vercel
-- [ ] Onboard the real members
+- [x] Delete `/dev/kitchen-sink` and every seed or debug route
+- [x] Responsive pass: sidebar to drawer below 1024px, kanban horizontal scroll, detail panel to full-screen sheet, touch targets at least 40px
+- [x] Playwright smoke suite
+- [ ] Lighthouse: performance at least 85, accessibility at least 95 — **needs a signed-in session, see below**
+- [x] Confirm `SUPABASE_SERVICE_ROLE_KEY` is absent from the client bundle
+- [x] Rate-limit the invite endpoint
+- [ ] Production Supabase config: email/password disabled, redirect allowlist, PITR if on Pro — **dashboard work, yours**
+- [ ] Custom domain and production env vars on Vercel — **yours**
+- [ ] Onboard the real members — **yours**
+
+### Notes from this phase
+
+**The kitchen sink is gone**, along with `src/lib/dev/` and the `/dev` public
+prefix in the middleware that existed only to serve it. Nothing else under
+`src/app` was a debug route.
+
+**A fault the responsive work uncovered, and the more important fix of the
+two.** `updateSession` and the server Supabase client both called `serverEnv()`
+for the two public values they need, which meant every request in the app
+parsed the entire server schema — mail credentials, cron token, service role
+key. One malformed optional secret therefore threw inside middleware and took
+down every route including `/sign-in`, reporting a variable that has nothing to
+do with serving the page. Both now read `clientEnv`. Separately, the schema
+treats a blank string as unset, because `.env` files ship optional keys empty
+and `""` is not `undefined` as far as zod is concerned.
+
+**Responsive.** Below 1024px the docked sidebar is hidden and the same
+`AppSidebar` renders inside a left drawer — the same component, not a second
+navigation built for small screens, because the one nobody uses daily is the
+one that rots. The drawer closes on navigation, which is the classic bug that
+makes a successful tap look like nothing happened. The issue peek is full
+screen below `sm`, since an 80vh dialog on a phone leaves an unreachable strip
+of list behind it. Comment actions, reactions and the header controls are 40px
+on touch and shrink back to their dense sizes from `sm` up. Kanban and the
+spreadsheet already scrolled horizontally.
+
+**Rate limiting** is counted in Postgres, not in memory: an in-process counter
+resets on every deploy and is per-instance, so on serverless it limits close to
+nothing. Invites are counted from `invites.created_at` and resends from a new
+`invite.resent` audit action, which also gives resends an audit trail they did
+not have. Sixty invites and thirty resends per admin per hour — far above any
+real use, low enough to matter if an admin account is taken.
+
+**Bundle scan** is `pnpm check:bundle`, a script rather than a one-off grep,
+and it searches both the variable names and their live values. A leak that
+inlined a secret would not contain its name, which is exactly the failure a
+grep for names would miss. Currently clean across 102 client files.
+
+**Smoke suite** is `pnpm test:e2e`: 15 tests over two projects, desktop
+Chromium and a Pixel 7, run against a production build rather than `next dev`
+because middleware and redirects are what it asserts and they differ. All 30
+green.
+
+### Verified — the first browser-driven verification in this project
+
+Every test runs signed out, deliberately. Signing in needs a real OAuth round
+trip, and the alternatives are both wrong: a password test account is forbidden
+and no email/password provider exists, while a service-role token would test a
+path no member ever takes. What is left is still worth guarding:
+
+- All eight protected routes and `/` redirect a signed-out visitor to sign-in.
+- Sign-in offers Google and GitHub and contains no password or email input.
+- Sign-in renders with an empty console — no errors, no React warnings.
+- A malformed invite token renders the notice rather than 500ing, which was a
+  real defect once, and an unknown well-formed token is refused.
+- `/dev/kitchen-sink` no longer renders.
+- No server secret name appears in the served HTML.
+
+### Not done, and why
+
+- **Lighthouse.** The two pages the target names, `/home` and a project issues
+  page, are both behind the session wall, so scoring them needs a signed-in
+  browser profile that this suite cannot produce for the reason above. Run it
+  by hand from Chrome DevTools once signed in, or park it until a seeded
+  staging user exists.
+- **Supabase production config, the Vercel domain and env vars, and onboarding
+  the members** are all dashboard and account work.
 
 **DoD:** 20 real users signed in, one real cycle running.
 

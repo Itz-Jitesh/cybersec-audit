@@ -69,7 +69,10 @@ export function IssuePeekOverlay({
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent
         showCloseButton
-        className="h-[80vh] max-w-[860px] gap-0 overflow-hidden p-0 sm:max-w-[860px]"
+        // Full screen on a phone, a centred panel from sm up. An 80vh dialog
+        // inside a 100vw viewport leaves a strip of unreachable list behind it
+        // and nothing to grab, which on touch reads as a stuck screen.
+        className="h-dvh max-h-dvh w-screen max-w-none gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[80vh] sm:max-h-[80vh] sm:w-full sm:max-w-[860px] sm:rounded-lg sm:border"
       >
         <DialogTitle className="sr-only">Issue detail</DialogTitle>
 
@@ -97,7 +100,7 @@ export function IssuePeekOverlay({
               <Link
                 href={`/projects/${data.issue.projectId}/issues/${data.issue.id}`}
                 aria-label="Open in full page"
-                className="mr-6 rounded-sm p-1 text-text-400 hover:bg-bg-80 hover:text-text-100"
+                className="mr-8 flex size-10 items-center justify-center rounded-sm text-text-400 hover:bg-bg-80 hover:text-text-100 sm:mr-6 sm:size-7"
               >
                 <Maximize2 size={14} strokeWidth={1.5} />
               </Link>
