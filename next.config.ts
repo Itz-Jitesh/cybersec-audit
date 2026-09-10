@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
    */
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
 
+  /**
+   * jsdom reads real files off disk at require time — default-stylesheet.css
+   * among them — resolved relative to its own __dirname. Bundling it into a
+   * route chunk rewrites that path to something like /ROOT/node_modules/...
+   * which does not exist, and the route dies with ENOENT the first time it
+   * renders. isomorphic-dompurify pulls jsdom in on the server, so both are
+   * kept external and loaded by Node from node_modules as normal.
+   */
+  serverExternalPackages: ["isomorphic-dompurify", "jsdom"],
+
   experimental: {
     /**
      * `radix-ui` and `lucide-react` are barrels: importing one primitive pulls
@@ -26,7 +36,15 @@ const nextConfig: NextConfig = {
      * bundler has to prove unreachable. This rewrites each import to the exact
      * submodule it resolves to.
      */
-    optimizePackageImports: ["radix-ui", "lucide-react", "date-fns"],
+    optimizePackageImports: [
+      "radix-ui",
+      "lucide-react",
+      "date-fns",
+      "recharts",
+      "@dnd-kit/core",
+      "@dnd-kit/sortable",
+      "@dnd-kit/utilities",
+    ],
   },
 };
 

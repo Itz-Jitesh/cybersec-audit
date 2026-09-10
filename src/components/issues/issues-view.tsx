@@ -7,6 +7,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { CircleDot, Plus } from "lucide-react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -28,14 +29,9 @@ import { IssuePeekOverlay } from "@/components/issues/issue-peek-overlay";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import { CalendarLayout } from "@/components/views/calendar-layout";
-import {
-  KanbanLayout,
-  type KanbanMove,
-} from "@/components/views/kanban-layout";
+import type { KanbanMove } from "@/components/views/kanban-layout";
 import { ListLayout } from "@/components/views/list-layout";
 import { SaveViewDialog } from "@/components/views/save-view-dialog";
-import { SpreadsheetLayout } from "@/components/views/spreadsheet-layout";
 import type { IssueLabelRef, IssueListItem } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
 import { useProjectRealtime } from "@/hooks/realtime/use-project-realtime";
@@ -47,6 +43,30 @@ import {
   type IssueLayout,
 } from "@/lib/validators/view";
 import { useProjectViewStore } from "@/stores/project-view-store";
+
+const KanbanLayout = dynamic(
+  () =>
+    import("@/components/views/kanban-layout").then((mod) => ({
+      default: mod.KanbanLayout,
+    })),
+  { ssr: false },
+);
+
+const CalendarLayout = dynamic(
+  () =>
+    import("@/components/views/calendar-layout").then((mod) => ({
+      default: mod.CalendarLayout,
+    })),
+  { ssr: false },
+);
+
+const SpreadsheetLayout = dynamic(
+  () =>
+    import("@/components/views/spreadsheet-layout").then((mod) => ({
+      default: mod.SpreadsheetLayout,
+    })),
+  { ssr: false },
+);
 
 interface IssuesViewProps {
   projectId: string;
@@ -428,6 +448,61 @@ export function IssuesView({
     [mutate],
   );
 
+  const handleOpen = useCallback(
+    (issueId: string) => setPeekId(issueId),
+    [],
+  );
+
+  const handleQuickAdd = useCallback(
+    (stateId: string) => {
+      setQuickAddState(stateId);
+      setCreateOpen(true);
+    },
+    [],
+  );
+
+  const handleSort = useCallback(
+    (orderBy: IssueFilters["orderBy"]) => {
+      handleFilterChange({
+        ...filters,
+        orderBy,
+        sortDirection:
+          filters.orderBy === orderBy && filters.sortDirection === "asc"
+            ? "desc"
+            : "asc",
+      });
+    },
+    [filters, handleFilterChange],
+  );
+
+  const handleLayoutChange = useCallback(
+    (next: IssueLayout) => setStoredLayout(projectId, next),
+    [projectId, setStoredLayout],
+  );
+
+  const handleDisplayPropsChange = useCallback(
+    (next: DisplayProps) => setStoredDisplayProps(projectId, next),
+    [projectId, setStoredDisplayProps],
+  );
+
+  const handleSaveView = useCallback(
+    () => setSaveViewOpen(true),
+    [],
+  );
+
+  const handleCreateOpenChange = useCallback(
+    (next: boolean) => {
+      setCreateOpen(next);
+      if (!next) setQuickAddState(null);
+    },
+    [],
+  );
+
+  const handlePeekClose = useCallback(
+    () => setPeekId(null),
+    [],
+  );
+
   const selectedIds = [...selected];
 
   function runBulk(
@@ -463,10 +538,10 @@ export function IssuesView({
         groupBy={groupBy}
         onGroupByChange={handleGroupByChange}
         layout={layout}
-        onLayoutChange={(next) => setStoredLayout(projectId, next)}
+        onLayoutChange={handleLayoutChange}
         displayProps={displayProps}
-        onDisplayPropsChange={(next) => setStoredDisplayProps(projectId, next)}
-        onSaveView={() => setSaveViewOpen(true)}
+        onDisplayPropsChange={handleDisplayPropsChange}
+        onSaveView={handleSaveView}
       />
 
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-border-subtle px-4">
@@ -536,19 +611,16 @@ export function IssuesView({
           issues={issues}
           states={states}
           properties={displayProps.properties}
-          onOpen={(issueId) => setPeekId(issueId)}
+          onOpen={handleOpen}
           onMove={handleKanbanMove}
-          onQuickAdd={(stateId) => {
-            setQuickAddState(stateId);
-            setCreateOpen(true);
-          }}
+          onQuickAdd={handleQuickAdd}
         />
       )}
 
       {issues.length > 0 && layout === "calendar" && (
         <CalendarLayout
           issues={issues}
-          onOpen={(issueId) => setPeekId(issueId)}
+          onOpen={handleOpen}
           onReschedule={handleReschedule}
         />
       )}
@@ -562,18 +634,7 @@ export function IssuesView({
           properties={displayProps.properties}
           orderBy={filters.orderBy ?? "sort_order"}
           sortDirection={filters.sortDirection ?? "asc"}
-          onSort={(orderBy) =>
-            handleFilterChange({
-              ...filters,
-              orderBy,
-              // A second click on the active column reverses it, which is the
-              // behaviour every table in every tool has.
-              sortDirection:
-                filters.orderBy === orderBy && filters.sortDirection === "asc"
-                  ? "desc"
-                  : "asc",
-            })
-          }
+          onSort={handleSort}
           handlers={handlers}
         />
       )}
@@ -635,10 +696,7 @@ export function IssuesView({
         // that column's state preselected rather than the first one.
         key={quickAddState ?? "default"}
         open={createOpen}
-        onOpenChange={(next) => {
-          setCreateOpen(next);
-          if (!next) setQuickAddState(null);
-        }}
+        onOpenChange={handleCreateOpenChange}
         defaultStateId={quickAddState ?? undefined}
         projectId={projectId}
         states={states}
@@ -658,7 +716,7 @@ export function IssuesView({
           labels={labels}
           currentUserId={currentUserId}
           canModerate={canModerate}
-          onClose={() => setPeekId(null)}
+          onClose={handlePeekClose}
         />
       )}
     </>

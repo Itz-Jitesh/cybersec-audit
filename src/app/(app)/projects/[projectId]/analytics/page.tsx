@@ -1,10 +1,6 @@
+import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 
-import {
-  AssigneeLoadChart,
-  OpenClosedTrend,
-  StateDistribution,
-} from "@/components/analytics/project-charts";
 import {
   getAssigneeLoad,
   getOpenClosedTrend,
@@ -13,6 +9,27 @@ import {
 } from "@/db/queries/analytics";
 import { assertCan } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
+
+const OpenClosedTrend = dynamic(
+  () =>
+    import("@/components/analytics/project-charts").then((mod) => ({
+      default: mod.OpenClosedTrend,
+    })),
+);
+
+const StateDistribution = dynamic(
+  () =>
+    import("@/components/analytics/project-charts").then((mod) => ({
+      default: mod.StateDistribution,
+    })),
+);
+
+const AssigneeLoadChart = dynamic(
+  () =>
+    import("@/components/analytics/project-charts").then((mod) => ({
+      default: mod.AssigneeLoadChart,
+    })),
+);
 
 function Stat({
   label,
