@@ -2,6 +2,7 @@ import { signOut } from "@/actions/auth";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { Footer } from "@/components/shared/footer";
 import { getUnreadNotificationCount } from "@/db/queries/home";
 import { getNavigationTree } from "@/db/queries/navigation";
 import { getWorkspaceMembers } from "@/db/queries/project";
@@ -69,7 +70,10 @@ export default async function AppLayout({
           unreadCount={unreadCount}
           signOutAction={signOut}
         />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">
+          {children}
+          <Footer />
+        </main>
       </div>
     </div>
   );

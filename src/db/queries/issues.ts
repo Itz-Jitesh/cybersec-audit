@@ -513,7 +513,7 @@ export interface CommentRow {
   contentHtml: string;
   isEdited: boolean;
   createdAt: Date;
-  reactions: { emoji: string; userIds: string[] }[];
+  reactions: { emoji: string; userIds: string[]; names: string[] }[];
 }
 
 export async function getIssueComments(issueId: string): Promise<CommentRow[]> {
@@ -526,11 +526,13 @@ export async function getIssueComments(issueId: string): Promise<CommentRow[]> {
       contentHtml: comments.contentHtml,
       isEdited: comments.isEdited,
       createdAt: comments.createdAt,
-      reactions: sql<{ emoji: string; userIds: string[] }[]>`coalesce((
+      reactions: sql<{ emoji: string; userIds: string[]; names: string[] }[]>`coalesce((
         select json_agg(r) from (
           select cr.emoji as emoji,
-                 json_agg(cr.user_id) as "userIds"
+                 json_agg(cr.user_id) as "userIds",
+                 json_agg(p.display_name) as "names"
           from comment_reactions cr
+          join profiles p on p.id = cr.user_id
           where cr.comment_id = ${comments.id}
           group by cr.emoji
           order by cr.emoji
