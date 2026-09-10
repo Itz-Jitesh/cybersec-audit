@@ -37,13 +37,13 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       <Image
         src="/brand/logo-full.svg"
         alt={WORKSPACE_NAME}
-        width={120}
-        height={28}
+        width={140}
+        height={32}
         priority
-        className="h-auto w-[120px] text-text-100"
+        className="h-auto w-[140px] text-text-100"
       />
 
-      <h1 className="mt-6 text-2xl font-semibold text-text-100">
+      <h1 className="mt-6 font-display text-2xl font-semibold tracking-wide text-text-100">
         Sign in to {WORKSPACE_NAME}
       </h1>
       <p className="mt-1 text-sm text-text-300">

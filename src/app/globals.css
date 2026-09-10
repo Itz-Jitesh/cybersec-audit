@@ -7,35 +7,35 @@
 --------------------------------------------------------------------------- */
 
 :root {
-  /* surfaces — 100 is deepest, ascending = lighter/raised */
-  --bg-100: #191b1b;
-  --bg-90: #1f2121;
-  --bg-80: #242626;
-  --bg-70: #2e3030;
-  --bg-60: #383a3a;
+  /* surfaces — 100 is deepest, ascending = lighter/raised. Cool blue-black scale. */
+  --bg-100: #0f1218;
+  --bg-90: #151921;
+  --bg-80: #1c212b;
+  --bg-70: #252b38;
+  --bg-60: #2f3644;
 
-  /* text */
-  --text-100: #e6e6e6;
-  --text-200: #b9bbbb;
-  --text-300: #878888;
-  --text-400: #5c5e5e;
+  /* text — cool-toned, slightly blue-shifted grays */
+  --text-100: #e2e5ea;
+  --text-200: #a3aab8;
+  --text-300: #6b7280;
+  --text-400: #454d5c;
 
-  /* borders */
-  --border-subtle: #2e3030;
-  --border-strong: #3f4141;
-  --border-focus: #3f76ff;
+  /* borders — dark blue-gray, not neutral */
+  --border-subtle: #1e2430;
+  --border-strong: #2c3344;
+  --border-focus: #2dd4a8;
 
-  /* accent */
-  --accent: #3f76ff;
-  --accent-hover: #3568e5;
-  --accent-subtle: #3f76ff1a;
-  --on-accent: #ffffff;
+  /* accent — teal-mint, restrained not neon */
+  --accent: #2dd4a8;
+  --accent-hover: #25b892;
+  --accent-subtle: #2dd4a81a;
+  --on-accent: #0f1218;
 
   /* semantic */
-  --success: #16a34a;
-  --warning: #f59e0b;
+  --success: #22c55e;
+  --warning: #f0a54a;
   --danger: #ef4444;
-  --info: #3b82f6;
+  --info: #2dd4a8;
 
   /* Text that sits on a filled danger surface, and the scrim behind a modal.
      Both existed as literal `text-white` and `bg-black/50` inside the shadcn
@@ -53,10 +53,10 @@
   --priority-none: #6b7280;
 
   /* state groups */
-  --state-backlog: #6b7280;
-  --state-unstarted: #9ca3af;
-  --state-started: #f59e0b;
-  --state-completed: #16a34a;
+  --state-backlog: #454d5c;
+  --state-unstarted: #6b7280;
+  --state-started: #f0a54a;
+  --state-completed: #22c55e;
   --state-cancelled: #ef4444;
 
   /* radii */
@@ -139,6 +139,7 @@
   --shadow-lg: var(--shadow-lg);
 
   --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
   --font-mono: var(--font-mono);
 
   /* type scale — docs/05-DESIGN-SYSTEM.md §2. The app is 13px body, not 16px. */
@@ -262,6 +263,22 @@
     font-size: 13px;
     line-height: 20px;
     -webkit-font-smoothing: antialiased;
+    /* Fine grid — ambient precision, not decoration. 48px cells, 3% white. */
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 47px,
+        rgba(255, 255, 255, 0.03) 47px,
+        rgba(255, 255, 255, 0.03) 48px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 47px,
+        rgba(255, 255, 255, 0.03) 47px,
+        rgba(255, 255, 255, 0.03) 48px
+      );
   }
 
   /* Density comes from weight restraint. Nothing in this app goes above 600. */
@@ -278,6 +295,26 @@
   ::selection {
     background-color: var(--accent-subtle);
   }
+}
+
+/* Auth page grid — more visible than the body grid for atmosphere. */
+.auth-grid {
+  background-color: var(--bg-100);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 47px,
+      rgba(255, 255, 255, 0.04) 47px,
+      rgba(255, 255, 255, 0.04) 48px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 47px,
+      rgba(255, 255, 255, 0.04) 47px,
+      rgba(255, 255, 255, 0.04) 48px
+    );
 }
 
 @media (prefers-reduced-motion: reduce) {

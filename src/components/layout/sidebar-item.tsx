@@ -42,7 +42,7 @@ export function SidebarItem({
   const className = cn(
     "group flex h-7 w-full items-center gap-2 rounded-sm pr-1.5 text-xs transition-colors duration-[120ms] ease-out",
     isActive
-      ? "bg-bg-70 text-text-100"
+      ? "bg-bg-70 text-text-100 shadow-[inset_2px_0_0_0_var(--accent)]"
       : "text-text-200 hover:bg-bg-80 hover:text-text-100",
     collapsed && "justify-center gap-0 pr-0",
   );
