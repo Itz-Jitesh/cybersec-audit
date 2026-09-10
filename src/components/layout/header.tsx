@@ -1,8 +1,7 @@
 "use client";
 
-import { Menu, Plus, Search } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { Menu, Search } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
 
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { CommandPalette } from "@/components/layout/command-palette";
@@ -10,7 +9,6 @@ import { NotificationBell } from "@/components/layout/notification-bell";
 import { Kbd } from "@/components/shared/kbd";
 import { MemberAvatar } from "@/components/shared/member-avatar";
 import { ShortcutCheatSheet } from "@/components/shared/shortcut-cheatsheet";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,18 +36,13 @@ export function Header({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [, startTransition] = useTransition();
   const setMobileNavOpen = useSidebarStore((state) => state.setMobileNavOpen);
-  const pathname = usePathname();
-  const router = useRouter();
 
-  /**
-   * "New issue" needs a project. The header outlives any single route, so the
-   * project is read from the path, and the button is hidden where there is no
-   * project to create an issue in rather than opening a dead dialog.
+  /*
+   * The header used to carry a "New issue" button. It has been removed: the
+   * issues view already owns issue creation, it knows whether the viewer may
+   * write, and the header button did not — so it offered the action to people
+   * the action would then refuse.
    */
-  const projectId = useMemo(
-    () => pathname.match(/^\/projects\/([0-9a-f-]{36})/)?.[1] ?? null,
-    [pathname],
-  );
 
   // Cmd/Ctrl+K opens the palette from anywhere in the app shell.
   useEffect(() => {
@@ -94,19 +87,6 @@ export function Header({
           <Kbd keys={["⌘", "K"]} />
         </span>
       </button>
-
-      {projectId && (
-        <Button
-          size="sm"
-          className="gap-1.5"
-          onClick={() =>
-            router.push(`/projects/${projectId}/issues?create=1`)
-          }
-        >
-          <Plus size={14} strokeWidth={1.5} />
-          <span className="hidden sm:inline">New issue</span>
-        </Button>
-      )}
 
       <NotificationBell unreadCount={unreadCount} />
 

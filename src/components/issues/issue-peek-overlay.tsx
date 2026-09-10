@@ -7,6 +7,7 @@ import Link from "next/link";
 
 import { loadIssueDetail } from "@/actions/issue-detail";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { IssueLabelRef } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
@@ -51,14 +52,27 @@ export function IssuePeekOverlay({
   const queryClient = useQueryClient();
   const queryKey = ["issue-detail", issueId] as const;
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey,
     queryFn: async () => {
       const result = await loadIssueDetail({ issueId });
-      if (!result.ok) throw new Error(result.error);
+      if (!result.ok) {
+        // The code travels with the error: a denial and a failed query are not
+        // the same thing, and telling someone they lack access when the query
+        // simply broke sends them to an admin for a permission they already
+        // have.
+        throw Object.assign(new Error(result.error), { code: result.code });
+      }
       return result.data;
     },
+    retry: false,
   });
+
+  const denied =
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error.code === "FORBIDDEN" || error.code === "UNAUTHENTICATED");
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey });
@@ -86,11 +100,25 @@ export function IssuePeekOverlay({
         {error && (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
             <p className="text-sm font-medium text-text-100">
-              You do not have access to this issue
+              {denied
+                ? "You do not have access to this issue"
+                : "This issue could not be loaded"}
             </p>
             <p className="text-xs text-text-300">
-              {error instanceof Error ? error.message : "Access denied."}
+              {error instanceof Error
+                ? error.message
+                : "Something went wrong. Try again."}
             </p>
+            {!denied && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="mt-1"
+                onClick={() => void refetch()}
+              >
+                Try again
+              </Button>
+            )}
           </div>
         )}
 
