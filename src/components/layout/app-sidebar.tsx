@@ -9,23 +9,15 @@ import {
   Plus,
   Settings,
   Star,
-  UserPlus,
 } from "lucide-react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 
 import { SidebarItem } from "@/components/layout/sidebar-item";
 import { SidebarProjectTree } from "@/components/layout/sidebar-project-tree";
 import { CreateProjectModal } from "@/components/projects/create-project-modal";
 import { MemberAvatar } from "@/components/shared/member-avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import type { NavigationTree } from "@/db/queries/navigation";
 import type { MemberRow } from "@/db/queries/project";
 import type { CurrentUser } from "@/lib/auth/session";
@@ -36,17 +28,9 @@ import { useSidebarStore } from "@/stores/sidebar-store";
 interface AppSidebarProps {
   user: CurrentUser;
   tree: NavigationTree;
-  canInvite: boolean;
-  /** Mirrors the server guard; createProject re-checks it regardless. */
   canCreateProject: boolean;
   workspaceMembers: MemberRow[];
   unreadCount: number;
-  signOutAction: () => Promise<void>;
-  /**
-   * Rendered inside the mobile drawer. The drawer supplies its own width and
-   * its own close control, so the collapse toggle and the collapsed layout
-   * make no sense there — a 60px rail inside a 250px drawer is nothing.
-   */
   inDrawer?: boolean;
 }
 
@@ -59,16 +43,13 @@ const PRIMARY_NAV = [
 export function AppSidebar({
   user,
   tree,
-  canInvite,
   canCreateProject,
   workspaceMembers,
   unreadCount,
-  signOutAction,
   inDrawer = false,
 }: AppSidebarProps) {
   const pathname = usePathname();
   const [createOpen, setCreateOpen] = useState(false);
-  const [, startTransition] = useTransition();
   const hydrated = useSidebarStore((state) => state.hasHydrated);
   // Hydration stays false on the server, so the defaults below (expanded,
   // unfolded) are exactly what the server rendered. Once localStorage merges,
@@ -121,64 +102,25 @@ export function AppSidebar({
     >
       {/* Workspace header */}
       <div className="flex h-header shrink-0 items-center px-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild aria-label="Workspace menu">
-            <button
-              type="button"
-              className={cn(
-                "flex h-8 items-center gap-2 rounded-sm px-1.5 transition-colors duration-[120ms] ease-out hover:bg-bg-80",
-                isCollapsed ? "w-8 justify-center px-0" : "w-full",
-              )}
-            >
-              <Image
-                src="/brand/logo-mark.svg"
-                alt=""
-                width={20}
-                height={20}
-                className="shrink-0 text-text-100"
-              />
-              {!isCollapsed && (
-                <span className="flex-1 truncate text-left text-xs font-medium text-text-100">
-                  {WORKSPACE_NAME}
-                </span>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-
-          <DropdownMenuContent side="bottom" align="start" className="w-52">
-            <DropdownMenuItem asChild>
-              <a href="/admin">
-                <Settings size={14} strokeWidth={1.5} />
-                Settings
-              </a>
-            </DropdownMenuItem>
-            {canInvite && (
-              <DropdownMenuItem asChild>
-                <a href="/admin/invites">
-                  <UserPlus size={14} strokeWidth={1.5} />
-                  Invite members
-                </a>
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            {/*
-              Not a <form> inside the item. Radix closes the menu on select and
-              unmounts its contents, which tore the form out before the submit
-              event could fire — the button looked fine and did nothing.
-              Calling the action from onSelect runs it before the unmount.
-            */}
-            <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
-                startTransition(async () => {
-                  await signOutAction();
-                });
-              }}
-            >
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div
+          className={cn(
+            "flex h-8 items-center gap-2 px-1.5",
+            isCollapsed ? "w-8 justify-center px-0" : "w-full",
+          )}
+        >
+          <Image
+            src="/brand/logo-mark.svg"
+            alt=""
+            width={20}
+            height={20}
+            className="shrink-0 text-text-100"
+          />
+          {!isCollapsed && (
+            <span className="flex-1 truncate text-left text-xs font-medium text-text-100">
+              {WORKSPACE_NAME}
+            </span>
+          )}
+        </div>
       </div>
 
       <nav className="flex-1 overflow-x-hidden overflow-y-auto px-2 pb-2">
@@ -244,6 +186,16 @@ export function AppSidebar({
         )}
 
         <SidebarProjectTree teams={tree.teams} collapsed={isCollapsed} />
+
+        <div className="mt-2">
+          <SidebarItem
+            href="/admin"
+            icon={Settings}
+            label="Settings"
+            collapsed={isCollapsed}
+            isActive={pathname.startsWith("/admin")}
+          />
+        </div>
       </nav>
 
       {/* Footer */}

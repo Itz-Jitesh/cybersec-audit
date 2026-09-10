@@ -45,11 +45,9 @@ export default async function AppLayout({
         <AppSidebar
           user={user}
           tree={tree}
-          canInvite={isAdmin}
           canCreateProject={canCreateProject}
           workspaceMembers={workspaceMembers}
           unreadCount={unreadCount}
-          signOutAction={signOut}
         />
       </div>
 
@@ -57,11 +55,9 @@ export default async function AppLayout({
         <AppSidebar
           user={user}
           tree={tree}
-          canInvite={isAdmin}
           canCreateProject={canCreateProject}
           workspaceMembers={workspaceMembers}
           unreadCount={unreadCount}
-          signOutAction={signOut}
           inDrawer
         />
       </MobileNav>
