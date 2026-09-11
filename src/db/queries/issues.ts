@@ -309,16 +309,16 @@ export async function getIssueDetail(
     .select({
       id: issues.id,
       sequenceId: issues.sequenceId,
-      identifier: projects.identifier,
+      identifier: sql<string>`coalesce(${projects.identifier}, '')`,
       projectId: issues.projectId,
       name: issues.name,
       descriptionHtml: issues.descriptionHtml,
       descriptionJson: issues.descriptionJson,
       priority: issues.priority,
       stateId: issues.stateId,
-      stateName: states.name,
-      stateGroup: states.group,
-      stateColor: states.color,
+      stateName: sql<string>`coalesce(${states.name}, 'Unknown')`,
+      stateGroup: sql<string>`coalesce(${states.group}, 'unstarted')`,
+      stateColor: sql<string>`coalesce(${states.color}, 'var(--text-300)')`,
       cycleId: issues.cycleId,
       cycleName: cycles.name,
       parentId: issues.parentId,
@@ -374,8 +374,8 @@ export async function getIssueDetail(
       ), '[]'::json)`,
     })
     .from(issues)
-    .innerJoin(states, eq(states.id, issues.stateId))
-    .innerJoin(projects, eq(projects.id, issues.projectId))
+    .leftJoin(states, eq(states.id, issues.stateId))
+    .leftJoin(projects, eq(projects.id, issues.projectId))
     .leftJoin(profiles, eq(profiles.id, issues.createdBy))
     .leftJoin(cycles, eq(cycles.id, issues.cycleId))
     .where(eq(issues.id, issueId))
@@ -398,16 +398,16 @@ export async function getSubIssues(issueId: string) {
     .select({
       id: issues.id,
       sequenceId: issues.sequenceId,
-      identifier: projects.identifier,
+      identifier: sql<string>`coalesce(${projects.identifier}, '')`,
       projectId: issues.projectId,
       name: issues.name,
       priority: issues.priority,
-      stateGroup: states.group,
-      stateColor: states.color,
+      stateGroup: sql<string>`coalesce(${states.group}, 'unstarted')`,
+      stateColor: sql<string>`coalesce(${states.color}, 'var(--text-300)')`,
     })
     .from(issues)
-    .innerJoin(states, eq(states.id, issues.stateId))
-    .innerJoin(projects, eq(projects.id, issues.projectId))
+    .leftJoin(states, eq(states.id, issues.stateId))
+    .leftJoin(projects, eq(projects.id, issues.projectId))
     .where(and(eq(issues.parentId, issueId), isNull(issues.archivedAt)))
     .orderBy(asc(issues.sortOrder))
     .limit(100);
@@ -427,15 +427,15 @@ export async function getIssueRelations(issueId: string) {
       relatedIssueId: issueRelations.relatedIssueId,
       name: issues.name,
       sequenceId: issues.sequenceId,
-      identifier: projects.identifier,
+      identifier: sql<string>`coalesce(${projects.identifier}, '')`,
       targetProjectId: issues.projectId,
-      stateGroup: states.group,
-      stateColor: states.color,
+      stateGroup: sql<string>`coalesce(${states.group}, 'unstarted')`,
+      stateColor: sql<string>`coalesce(${states.color}, 'var(--text-300)')`,
     })
     .from(issueRelations)
-    .innerJoin(issues, eq(issues.id, issueRelations.relatedIssueId))
-    .innerJoin(states, eq(states.id, issues.stateId))
-    .innerJoin(projects, eq(projects.id, issues.projectId))
+    .leftJoin(issues, eq(issues.id, issueRelations.relatedIssueId))
+    .leftJoin(states, eq(states.id, issues.stateId))
+    .leftJoin(projects, eq(projects.id, issues.projectId))
     .where(eq(issueRelations.issueId, issueId))
     .orderBy(asc(issueRelations.createdAt))
     .limit(100);
