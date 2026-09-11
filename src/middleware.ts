@@ -35,15 +35,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 
-  // A signed-in user has no reason to sit on the sign-in screen.
-  if (pathname === "/sign-in") {
-    return NextResponse.redirect(new URL("/home", request.url));
-  }
-
-  if (isPublic(pathname)) {
-    return response;
-  }
-
   // The membership lookup is scoped to this request only. A deactivated member
   // fails is_active_member and so cannot read even their own row, which is
   // exactly the answer needed here.
@@ -59,15 +50,33 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  if (MFA_REQUIRED_ROLES.has(membership.role) && pathname !== "/mfa") {
+  const mfaRequired = MFA_REQUIRED_ROLES.has(membership.role);
+  let mfaSatisfied = true;
+
+  if (mfaRequired) {
     const { data: aal } =
       await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 
     // currentLevel is aal1 both before enrolment and before the challenge is
     // answered; /mfa handles whichever of the two applies.
-    if (aal?.currentLevel !== "aal2") {
-      return NextResponse.redirect(new URL("/mfa", request.url));
+    mfaSatisfied = aal?.currentLevel === "aal2";
+  }
+
+  // A signed-in user has no reason to sit on the sign-in screen, unless their
+  // second-factor requirement is unmet and they are returning to switch accounts.
+  if (pathname === "/sign-in") {
+    if (mfaRequired && !mfaSatisfied) {
+      return response;
     }
+    return NextResponse.redirect(new URL("/home", request.url));
+  }
+
+  if (isPublic(pathname)) {
+    return response;
+  }
+
+  if (mfaRequired && !mfaSatisfied && pathname !== "/mfa") {
+    return NextResponse.redirect(new URL("/mfa", request.url));
   }
 
   return response;

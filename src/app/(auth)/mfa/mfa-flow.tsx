@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, Copy, Loader2 } from "lucide-react";
+import { Check, ChevronLeft, Copy, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { signOut } from "@/actions/auth";
 import { OtpInput } from "@/app/(auth)/mfa/otp-input";
 import { Button } from "@/components/ui/button";
 import { generateQrDataUrl } from "@/lib/qr";
@@ -147,6 +148,17 @@ export function MfaFlow() {
 
   return (
     <div className="flex flex-col">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          await signOut();
+        }}
+        className="mb-4 inline-flex items-center gap-1 text-xs text-text-300 transition-colors duration-[120ms] ease-out hover:text-text-100 disabled:opacity-50"
+      >
+        <ChevronLeft size={14} /> Back to sign in
+      </button>
       <h1 className="text-2xl font-semibold text-text-100">
         {isEnrolling
           ? "Set up two-factor authentication"
@@ -228,6 +240,22 @@ export function MfaFlow() {
         Lost your device? A club admin can remove your second factor so you can
         enrol again. There are no printed recovery codes.
       </p>
+
+      <div className="mt-4 flex border-t border-border-subtle pt-3">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            await signOut();
+          }}
+          className="w-full justify-center text-xs text-text-300 hover:text-text-100"
+        >
+          Use a different account / Sign out
+        </Button>
+      </div>
     </div>
   );
 }

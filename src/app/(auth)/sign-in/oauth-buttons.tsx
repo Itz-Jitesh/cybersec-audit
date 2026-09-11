@@ -57,9 +57,17 @@ export function OAuthButtons({ inviteToken }: OAuthButtonsProps) {
     }
 
     const supabase = createClient();
+    const queryParams: Record<string, string> = {};
+    if (provider === "google") {
+      queryParams.prompt = "select_account";
+    }
+
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: callback.toString() },
+      options: {
+        redirectTo: callback.toString(),
+        queryParams,
+      },
     });
 
     if (oauthError) {
