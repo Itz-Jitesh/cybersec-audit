@@ -251,10 +251,10 @@ export async function getIssuesForProject(
       ), 0)`,
       assignees: sql<IssueAssignee[]>`coalesce((
         select json_agg(json_build_object(
-          'id', p.id, 'displayName', p.display_name, 'avatarUrl', p.avatar_url
+          'id', ia.user_id, 'displayName', coalesce(p.display_name, 'Member'), 'avatarUrl', p.avatar_url
         ) order by p.display_name)
         from issue_assignees ia
-        join profiles p on p.id = ia.user_id
+        left join profiles p on p.id = ia.user_id
         where ia.issue_id = ${issues.id}
       ), '[]'::json)`,
       labels: sql<IssueLabelRef[]>`coalesce((
@@ -331,7 +331,7 @@ export async function getIssueDetail(
       updatedAt: issues.updatedAt,
       completedAt: issues.completedAt,
       createdById: issues.createdBy,
-      createdByName: profiles.displayName,
+      createdByName: sql<string>`coalesce(${profiles.displayName}, 'Unknown member')`,
       subIssueCount: sql<number>`coalesce((
         select count(*)::int from issues c
         where c.parent_id = ${issues.id} and c.archived_at is null
@@ -354,10 +354,10 @@ export async function getIssueDetail(
       )`,
       assignees: sql<IssueAssignee[]>`coalesce((
         select json_agg(json_build_object(
-          'id', p.id, 'displayName', p.display_name, 'avatarUrl', p.avatar_url
+          'id', ia.user_id, 'displayName', coalesce(p.display_name, 'Member'), 'avatarUrl', p.avatar_url
         ) order by p.display_name)
         from issue_assignees ia
-        join profiles p on p.id = ia.user_id
+        left join profiles p on p.id = ia.user_id
         where ia.issue_id = ${issues.id}
       ), '[]'::json)`,
       labels: sql<IssueLabelRef[]>`coalesce((
@@ -376,7 +376,7 @@ export async function getIssueDetail(
     .from(issues)
     .innerJoin(states, eq(states.id, issues.stateId))
     .innerJoin(projects, eq(projects.id, issues.projectId))
-    .innerJoin(profiles, eq(profiles.id, issues.createdBy))
+    .leftJoin(profiles, eq(profiles.id, issues.createdBy))
     .leftJoin(cycles, eq(cycles.id, issues.cycleId))
     .where(eq(issues.id, issueId))
     .limit(1);
@@ -464,11 +464,11 @@ export async function getIssueAttachments(issueId: string) {
       fileSize: issueAttachments.fileSize,
       mimeType: issueAttachments.mimeType,
       uploadedBy: issueAttachments.uploadedBy,
-      uploaderName: profiles.displayName,
+      uploaderName: sql<string>`coalesce(${profiles.displayName}, 'Unknown member')`,
       createdAt: issueAttachments.createdAt,
     })
     .from(issueAttachments)
-    .innerJoin(profiles, eq(profiles.id, issueAttachments.uploadedBy))
+    .leftJoin(profiles, eq(profiles.id, issueAttachments.uploadedBy))
     .where(eq(issueAttachments.issueId, issueId))
     .orderBy(desc(issueAttachments.createdAt))
     .limit(100);
@@ -490,7 +490,7 @@ export async function getIssueComments(issueId: string): Promise<CommentRow[]> {
     .select({
       id: comments.id,
       authorId: comments.authorId,
-      authorName: profiles.displayName,
+      authorName: sql<string>`coalesce(${profiles.displayName}, 'Unknown member')`,
       authorAvatar: profiles.avatarUrl,
       contentHtml: comments.contentHtml,
       isEdited: comments.isEdited,
@@ -501,7 +501,7 @@ export async function getIssueComments(issueId: string): Promise<CommentRow[]> {
                  json_agg(cr.user_id) as "userIds",
                  json_agg(p.display_name) as "names"
           from comment_reactions cr
-          join profiles p on p.id = cr.user_id
+          left join profiles p on p.id = cr.user_id
           where cr.comment_id = ${comments.id}
           group by cr.emoji
           order by cr.emoji
@@ -509,7 +509,7 @@ export async function getIssueComments(issueId: string): Promise<CommentRow[]> {
       ), '[]'::json)`,
     })
     .from(comments)
-    .innerJoin(profiles, eq(profiles.id, comments.authorId))
+    .leftJoin(profiles, eq(profiles.id, comments.authorId))
     .where(eq(comments.issueId, issueId))
     .orderBy(asc(comments.createdAt))
     .limit(200);
@@ -535,7 +535,7 @@ export async function getIssueActivity(
     .select({
       id: issueActivity.id,
       actorId: issueActivity.actorId,
-      actorName: profiles.displayName,
+      actorName: sql<string>`coalesce(${profiles.displayName}, 'System')`,
       actorAvatar: profiles.avatarUrl,
       field: issueActivity.field,
       oldDisplay: issueActivity.oldDisplay,
@@ -543,7 +543,7 @@ export async function getIssueActivity(
       createdAt: issueActivity.createdAt,
     })
     .from(issueActivity)
-    .innerJoin(profiles, eq(profiles.id, issueActivity.actorId))
+    .leftJoin(profiles, eq(profiles.id, issueActivity.actorId))
     .where(eq(issueActivity.issueId, issueId))
     .orderBy(asc(issueActivity.createdAt))
     .limit(200);
