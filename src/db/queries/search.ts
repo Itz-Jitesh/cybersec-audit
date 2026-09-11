@@ -29,8 +29,8 @@ import { teamMembers } from "@/db/schema/teams";
  * Each entity is one query with an explicit limit, all in SQL, in parallel.
  * Issues use the search_vector GIN index through websearch_to_tsquery, exactly
  * like the issue list's own search box. Visibility matches the rest of the
- * app: workspace admins see everything, everyone else sees rows in projects
- * they belong to (directly or through the team).
+ * app: workspace admins and mentors see everything, everyone else sees rows in
+ * projects they belong to (directly or through the team).
  */
 
 const PER_ENTITY_LIMIT = 8;
@@ -71,10 +71,10 @@ export interface PaletteResults {
 
 async function visibleProjectIds(
   userId: string,
-  isAdmin: boolean,
+  readsWholeWorkspace: boolean,
 ): Promise<string[] | null> {
-  // Null means unrestricted: the caller is a workspace administrator.
-  if (isAdmin) return null;
+  // Null means unrestricted: the caller is an admin or a mentor.
+  if (readsWholeWorkspace) return null;
   const memberships = await db
     .select({ id: projects.id })
     .from(projects)
@@ -92,10 +92,10 @@ async function visibleProjectIds(
 /** Palette search across every entity the current user can see. */
 export async function searchPalette(
   userId: string,
-  isAdmin: boolean,
+  readsWholeWorkspace: boolean,
   query: string,
 ): Promise<PaletteResults> {
-  const scope = await visibleProjectIds(userId, isAdmin);
+  const scope = await visibleProjectIds(userId, readsWholeWorkspace);
   if (scope !== null && scope.length === 0) {
     return { issues: [], cycles: [], modules: [], pages: [] };
   }

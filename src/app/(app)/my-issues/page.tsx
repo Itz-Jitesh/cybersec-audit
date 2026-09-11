@@ -1,6 +1,6 @@
 import { MyIssuesView } from "@/components/my-issues/my-issues-view";
 import { getMyIssueProjects, getMyIssues } from "@/db/queries/my-issues";
-import { isWorkspaceAdmin } from "@/lib/auth/permissions";
+import { readsWholeWorkspace } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
 import { DEFAULT_MY_ISSUE_FILTERS } from "@/lib/validators/my-issues";
 
@@ -15,10 +15,10 @@ import { DEFAULT_MY_ISSUE_FILTERS } from "@/lib/validators/my-issues";
  */
 export default async function MyIssuesPage() {
   const user = await requireUser();
-  const admin = await isWorkspaceAdmin(user.id);
+  const seesEverything = readsWholeWorkspace(user.role);
 
   const [rows, projects] = await Promise.all([
-    getMyIssues(user.id, admin, DEFAULT_MY_ISSUE_FILTERS),
+    getMyIssues(user.id, seesEverything, DEFAULT_MY_ISSUE_FILTERS),
     getMyIssueProjects(user.id),
   ]);
 

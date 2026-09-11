@@ -56,6 +56,33 @@ export const isActiveMember = cache(
   },
 );
 
+/**
+ * Roles whose *read* scope is the whole workspace rather than their own teams:
+ * the three admin roles plus mentor.
+ *
+ * A mentor is not an admin — they cannot invite, manage a team, or manage a
+ * project — but they advise every team, so every team's work has to be
+ * reachable from their sidebar, their search and their issue lists. Anything
+ * that narrows a list to "the teams I belong to" must branch on this rather
+ * than on isWorkspaceAdmin, or a mentor signs in to an empty application while
+ * holding permission to read all of it.
+ *
+ * Role-based rather than a query: every caller already holds the CurrentUser,
+ * and this is a visibility filter over rows the permission layer has already
+ * decided are readable — never the authorization itself. assertCan and the RLS
+ * policies remain the two places that decide access.
+ */
+const WORKSPACE_WIDE_READ_ROLES: ReadonlySet<string> = new Set([
+  "admin",
+  "president",
+  "co_president",
+  "mentor",
+]);
+
+export function readsWholeWorkspace(role: string): boolean {
+  return WORKSPACE_WIDE_READ_ROLES.has(role);
+}
+
 /** admin, president or co_president — the three workspace-level admin roles. */
 export const isWorkspaceAdmin = cache(
   async (userId: string): Promise<boolean> => {

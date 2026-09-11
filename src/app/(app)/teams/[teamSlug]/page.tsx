@@ -11,10 +11,8 @@ import {
   getWorkspaceMembers,
 } from "@/db/queries/project";
 import { getWorkspaceMembersNotInTeam } from "@/db/queries/teams";
-import { assertCan } from "@/lib/auth/permissions";
+import { assertCan, readsWholeWorkspace } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
-
-const ADMIN_ROLES = new Set(["admin", "president", "co_president"]);
 
 interface TeamPageProps {
   params: Promise<{ teamSlug: string }>;
@@ -47,7 +45,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
     await Promise.all([
       getTeamMembers(team.id),
       getTeamProjects(team.id, user.id),
-      getNavigationTree(user.id, ADMIN_ROLES.has(user.role)),
+      getNavigationTree(user.id, readsWholeWorkspace(user.role)),
       getWorkspaceMembers(),
       canManage.ok
         ? getWorkspaceMembersNotInTeam(team.id)

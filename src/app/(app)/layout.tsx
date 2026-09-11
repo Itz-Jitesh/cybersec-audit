@@ -6,10 +6,8 @@ import { Footer } from "@/components/shared/footer";
 import { getUnreadNotificationCount } from "@/db/queries/home";
 import { getNavigationTree } from "@/db/queries/navigation";
 import { getWorkspaceMembers } from "@/db/queries/project";
-import { leadsAnyTeam } from "@/lib/auth/permissions";
+import { leadsAnyTeam, readsWholeWorkspace } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
-
-const ADMIN_ROLES = new Set(["admin", "president", "co_president"]);
 
 /**
  * The authenticated shell. Fixed to the viewport with the sidebar and the
@@ -20,7 +18,9 @@ export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await requireUser();
-  const isAdmin = ADMIN_ROLES.has(user.role);
+  // Admins and mentors read the whole workspace; everyone else sees the
+  // teams they belong to.
+  const seesEverything = readsWholeWorkspace(user.role);
 
   // A workspace admin can create a project anywhere; a team lead can create one
   // in a team they lead. This was one assertCan per team, so one query per
@@ -28,7 +28,7 @@ export default async function AppLayout({
   // createProject re-checks the specific team on submit either way.
   const [tree, unreadCount, workspaceMembers, canCreateProject] =
     await Promise.all([
-      getNavigationTree(user.id, isAdmin),
+      getNavigationTree(user.id, seesEverything),
       getUnreadNotificationCount(user.id),
       getWorkspaceMembers(),
       leadsAnyTeam(user.id),

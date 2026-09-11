@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Bookmark,
   CalendarDays,
   ChevronDown,
   Filter,
@@ -41,7 +40,6 @@ interface FilterBarProps {
   onLayoutChange: (layout: IssueLayout) => void;
   displayProps: DisplayProps;
   onDisplayPropsChange: (displayProps: DisplayProps) => void;
-  onSaveView: () => void;
   states: StateOption[];
   members: MemberRow[];
   labels: { id: string; name: string; color: string }[];
@@ -179,7 +177,6 @@ export function FilterBar({
   onLayoutChange,
   displayProps,
   onDisplayPropsChange,
-  onSaveView,
   states,
   members,
   labels,
@@ -542,16 +539,6 @@ export function FilterBar({
             </div>
           </PopoverContent>
         </Popover>
-
-        <button
-          type="button"
-          onClick={onSaveView}
-          title="Save these filters as a view"
-          className="flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-bg-80 px-2 text-xs text-text-200 hover:border-border-strong hover:text-text-100"
-        >
-          <Bookmark size={12} strokeWidth={1.5} />
-          Save view
-        </button>
 
         <div className="relative">
           <Search

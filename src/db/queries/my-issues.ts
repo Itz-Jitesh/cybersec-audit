@@ -67,7 +67,7 @@ function buildOrderBy(orderBy: MyIssueFilters["orderBy"]): SQL[] {
 
 export async function getMyIssues(
   userId: string,
-  isWorkspaceAdmin: boolean,
+  readsWholeWorkspace: boolean,
   filters: MyIssueFilters,
 ): Promise<MyIssueRow[]> {
   const conditions: SQL[] = [
@@ -76,7 +76,7 @@ export async function getMyIssues(
     eq(projects.isArchived, false),
   ];
 
-  if (!isWorkspaceAdmin) {
+  if (!readsWholeWorkspace) {
     conditions.push(
       sql`(
         exists (

@@ -31,7 +31,6 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import type { KanbanMove } from "@/components/views/kanban-layout";
 import { ListLayout } from "@/components/views/list-layout";
-import { SaveViewDialog } from "@/components/views/save-view-dialog";
 import type { IssueLabelRef, IssueListItem } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
 import { useProjectRealtime } from "@/hooks/realtime/use-project-realtime";
@@ -107,7 +106,6 @@ export function IssuesView({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [peekId, setPeekId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [saveViewOpen, setSaveViewOpen] = useState(false);
   const [quickAddState, setQuickAddState] = useState<string | null>(null);
   /** Anchor for Shift-click range selection. */
   const lastClickedId = useRef<string | null>(null);
@@ -487,11 +485,6 @@ export function IssuesView({
     [projectId, setStoredDisplayProps],
   );
 
-  const handleSaveView = useCallback(
-    () => setSaveViewOpen(true),
-    [],
-  );
-
   const handleCreateOpenChange = useCallback(
     (next: boolean) => {
       setCreateOpen(next);
@@ -543,7 +536,6 @@ export function IssuesView({
         onLayoutChange={handleLayoutChange}
         displayProps={displayProps}
         onDisplayPropsChange={handleDisplayPropsChange}
-        onSaveView={handleSaveView}
       />
 
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-border-subtle px-4">
@@ -683,16 +675,6 @@ export function IssuesView({
           runBulk({ archive: true }, (issue) => issue, "Issues archived.")
         }
         onCancel={() => setSelected(new Set())}
-      />
-
-      <SaveViewDialog
-        open={saveViewOpen}
-        onOpenChange={setSaveViewOpen}
-        projectId={projectId}
-        filters={filters}
-        displayProps={displayProps}
-        layout={layout}
-        onSaved={() => router.refresh()}
       />
 
       <IssueCreateModal

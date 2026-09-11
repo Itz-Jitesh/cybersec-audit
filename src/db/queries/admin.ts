@@ -36,8 +36,8 @@ export async function getAdminMembers(): Promise<AdminMember[]> {
   const rows = await db
     .select({
       userId: workspaceMembers.userId,
-      email: profiles.email,
-      displayName: profiles.displayName,
+      email: sql<string>`coalesce(${profiles.email}, '')`,
+      displayName: sql<string>`coalesce(${profiles.displayName}, 'Member')`,
       avatarUrl: profiles.avatarUrl,
       role: workspaceMembers.role,
       isActive: workspaceMembers.isActive,
@@ -54,7 +54,7 @@ export async function getAdminMembers(): Promise<AdminMember[]> {
       ), '[]'::json)`,
     })
     .from(workspaceMembers)
-    .innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
+    .leftJoin(profiles, eq(profiles.id, workspaceMembers.userId))
     .orderBy(profiles.displayName)
     .limit(MEMBER_LIMIT);
 

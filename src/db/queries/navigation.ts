@@ -38,15 +38,20 @@ const FAVORITE_LIMIT = 50;
  * because the shape needed is a grouping the database cannot return directly
  * and a `with` clause here would fan out into a join per project.
  *
- * A workspace administrator sees every team. Everyone else sees the teams they
- * belong to — the same boundary RLS enforces, applied here so the sidebar does
- * not advertise the existence of teams the user cannot open.
+ * A caller who reads the whole workspace — a workspace administrator or a
+ * mentor — sees every team. Everyone else sees the teams they belong to, the
+ * same boundary RLS enforces, applied here so the sidebar does not advertise
+ * the existence of teams the user cannot open.
+ *
+ * The flag is readsWholeWorkspace(role), never isWorkspaceAdmin: a mentor has
+ * read permission across every project, and branching on admin alone left them
+ * with an empty sidebar.
  */
 export async function getNavigationTree(
   userId: string,
-  isWorkspaceAdmin: boolean,
+  readsWholeWorkspace: boolean,
 ): Promise<NavigationTree> {
-  const visibleTeams = isWorkspaceAdmin
+  const visibleTeams = readsWholeWorkspace
     ? await db
         .select({
           id: teams.id,

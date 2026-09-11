@@ -256,7 +256,7 @@ export function ViewsList({ projectId, views, currentUserId }: ViewsListProps) {
       <EmptyState
         icon={Bookmark}
         title="No saved views"
-        description="Set up filters on the issues screen, then use Save view to keep them."
+        description="Views saved earlier appear here. The issues screen no longer offers Save view, so no new ones can be created from it."
         action={
           <Button
             size="sm"

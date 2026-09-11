@@ -2,7 +2,7 @@
 
 import { type ActionResult, guarded, invalid, ok } from "@/actions/result";
 import { searchPalette } from "@/db/queries/search";
-import { isWorkspaceAdmin } from "@/lib/auth/permissions";
+import { readsWholeWorkspace } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
   type PaletteSearchInput,
@@ -30,8 +30,12 @@ export async function searchPaletteAction(
     if (!user) {
       return ok({ issues: [], cycles: [], modules: [], pages: [] });
     }
-    const admin = await isWorkspaceAdmin(user.id);
-
-    return ok(await searchPalette(user.id, admin, parsed.data.query));
+    return ok(
+      await searchPalette(
+        user.id,
+        readsWholeWorkspace(user.role),
+        parsed.data.query,
+      ),
+    );
   });
 }

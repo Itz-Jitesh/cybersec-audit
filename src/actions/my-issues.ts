@@ -2,7 +2,7 @@
 
 import { type ActionResult, guarded, invalid, ok } from "@/actions/result";
 import { getMyIssues, type MyIssueRow } from "@/db/queries/my-issues";
-import { isWorkspaceAdmin } from "@/lib/auth/permissions";
+import { readsWholeWorkspace } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { myIssueFilterSchema } from "@/lib/validators/my-issues";
 
@@ -26,7 +26,12 @@ export async function listMyIssues(
     const user = await getCurrentUser();
     if (!user) return ok([]);
 
-    const admin = await isWorkspaceAdmin(user.id);
-    return ok(await getMyIssues(user.id, admin, parsed.data));
+    return ok(
+      await getMyIssues(
+        user.id,
+        readsWholeWorkspace(user.role),
+        parsed.data,
+      ),
+    );
   });
 }

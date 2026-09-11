@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -82,14 +82,14 @@ export async function getProjectMembers(
 ): Promise<MemberRow[]> {
   return db
     .select({
-      userId: profiles.id,
-      displayName: profiles.displayName,
-      email: profiles.email,
+      userId: projectMembers.userId,
+      displayName: sql<string>`coalesce(${profiles.displayName}, 'Member')`,
+      email: sql<string>`coalesce(${profiles.email}, '')`,
       avatarUrl: profiles.avatarUrl,
       role: projectMembers.role,
     })
     .from(projectMembers)
-    .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
+    .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
     .where(eq(projectMembers.projectId, projectId))
     .orderBy(asc(profiles.displayName))
     .limit(MEMBER_LIMIT);
@@ -149,14 +149,14 @@ export async function getTeamBySlug(slug: string): Promise<TeamDetail | null> {
 export async function getTeamMembers(teamId: string): Promise<MemberRow[]> {
   return db
     .select({
-      userId: profiles.id,
-      displayName: profiles.displayName,
-      email: profiles.email,
+      userId: teamMembers.userId,
+      displayName: sql<string>`coalesce(${profiles.displayName}, 'Member')`,
+      email: sql<string>`coalesce(${profiles.email}, '')`,
       avatarUrl: profiles.avatarUrl,
       role: teamMembers.role,
     })
     .from(teamMembers)
-    .innerJoin(profiles, eq(profiles.id, teamMembers.userId))
+    .leftJoin(profiles, eq(profiles.id, teamMembers.userId))
     .where(eq(teamMembers.teamId, teamId))
     .orderBy(asc(profiles.displayName))
     .limit(MEMBER_LIMIT);

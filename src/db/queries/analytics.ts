@@ -114,8 +114,8 @@ export async function getAssigneeLoad(
 ): Promise<AssigneeLoad[]> {
   const rows = await db
     .select({
-      userId: profiles.id,
-      displayName: profiles.displayName,
+      userId: issueAssignees.userId,
+      displayName: sql<string>`coalesce(${profiles.displayName}, 'Member')`,
       avatarUrl: profiles.avatarUrl,
       open: sql<number>`count(*) filter (where ${states.group} not in ('completed', 'cancelled'))`,
       completed: sql<number>`count(*) filter (where ${states.group} = 'completed')`,
@@ -126,9 +126,9 @@ export async function getAssigneeLoad(
       and(eq(issues.id, issueAssignees.issueId), isNull(issues.archivedAt)),
     )
     .innerJoin(states, eq(states.id, issues.stateId))
-    .innerJoin(profiles, eq(profiles.id, issueAssignees.userId))
+    .leftJoin(profiles, eq(profiles.id, issueAssignees.userId))
     .where(eq(issues.projectId, projectId))
-    .groupBy(profiles.id, profiles.displayName, profiles.avatarUrl)
+    .groupBy(issueAssignees.userId, profiles.displayName, profiles.avatarUrl)
     .orderBy(sql`count(*) desc`)
     .limit(ASSIGNEE_LIMIT);
 

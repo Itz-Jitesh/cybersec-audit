@@ -46,14 +46,14 @@ export async function getNotifications(
       issueSequenceId: issues.sequenceId,
       issueIdentifier: projects.identifier,
       actorId: notifications.actorId,
-      actorName: profiles.displayName,
+      actorName: sql<string>`coalesce(${profiles.displayName}, 'System')`,
       actorAvatarUrl: profiles.avatarUrl,
       readAt: notifications.readAt,
       snoozedTill: notifications.snoozedTill,
       createdAt: notifications.createdAt,
     })
     .from(notifications)
-    .innerJoin(profiles, eq(profiles.id, notifications.actorId))
+    .leftJoin(profiles, eq(profiles.id, notifications.actorId))
     .leftJoin(issues, eq(issues.id, notifications.issueId))
     .leftJoin(projects, eq(projects.id, issues.projectId))
     .where(eq(notifications.userId, userId))

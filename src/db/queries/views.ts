@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { profiles, views } from "@/db/schema";
@@ -51,14 +51,14 @@ export async function getProjectViews(
       layout: views.layout,
       access: views.access,
       ownerId: views.ownerId,
-      ownerName: profiles.displayName,
+      ownerName: sql<string>`coalesce(${profiles.displayName}, 'Member')`,
       ownerAvatarUrl: profiles.avatarUrl,
       filters: views.filters,
       displayProps: views.displayProps,
       updatedAt: views.updatedAt,
     })
     .from(views)
-    .innerJoin(profiles, eq(profiles.id, views.ownerId))
+    .leftJoin(profiles, eq(profiles.id, views.ownerId))
     .where(
       and(
         eq(views.projectId, projectId),
