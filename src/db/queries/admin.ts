@@ -120,11 +120,11 @@ export async function getAuditLog(
       entityId: auditLog.entityId,
       metadata: auditLog.metadata,
       createdAt: auditLog.createdAt,
-      actorName: profiles.displayName,
+      actorName: sql<string>`coalesce(${profiles.displayName}, 'System')`,
       actorAvatarUrl: profiles.avatarUrl,
     })
     .from(auditLog)
-    .innerJoin(profiles, eq(profiles.id, auditLog.actorId))
+    .leftJoin(profiles, eq(profiles.id, auditLog.actorId))
     .orderBy(desc(auditLog.createdAt))
     .limit(limit)
     .offset(offset);

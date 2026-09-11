@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { pages, profiles } from "@/db/schema";
@@ -36,13 +36,13 @@ export async function getProjectPages(
       title: pages.title,
       access: pages.access,
       ownerId: pages.ownerId,
-      ownerName: profiles.displayName,
+      ownerName: sql<string>`coalesce(${profiles.displayName}, 'Unknown member')`,
       ownerAvatarUrl: profiles.avatarUrl,
       isArchived: pages.isArchived,
       updatedAt: pages.updatedAt,
     })
     .from(pages)
-    .innerJoin(profiles, eq(profiles.id, pages.ownerId))
+    .leftJoin(profiles, eq(profiles.id, pages.ownerId))
     .where(
       and(
         eq(pages.projectId, projectId),
@@ -73,7 +73,7 @@ export async function getPage(pageId: string): Promise<PageDetail | null> {
       title: pages.title,
       access: pages.access,
       ownerId: pages.ownerId,
-      ownerName: profiles.displayName,
+      ownerName: sql<string>`coalesce(${profiles.displayName}, 'Unknown member')`,
       ownerAvatarUrl: profiles.avatarUrl,
       isArchived: pages.isArchived,
       updatedAt: pages.updatedAt,
@@ -81,7 +81,7 @@ export async function getPage(pageId: string): Promise<PageDetail | null> {
       contentJson: pages.contentJson,
     })
     .from(pages)
-    .innerJoin(profiles, eq(profiles.id, pages.ownerId))
+    .leftJoin(profiles, eq(profiles.id, pages.ownerId))
     .where(eq(pages.id, pageId))
     .limit(1);
 
