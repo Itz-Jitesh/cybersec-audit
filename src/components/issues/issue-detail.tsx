@@ -553,11 +553,11 @@ export function IssueDetail({
         <div className="mt-4 border-t border-border-subtle pt-3">
           <p className="text-xs text-text-400">
             Created by {issue.createdByName}{" "}
-            {formatDistanceToNowStrict(issue.createdAt, { addSuffix: true })}
+            {formatDistanceToNowStrict(new Date(issue.createdAt), { addSuffix: true })}
           </p>
           <p className="mt-0.5 text-xs text-text-400">
             Updated{" "}
-            {formatDistanceToNowStrict(issue.updatedAt, { addSuffix: true })}
+            {formatDistanceToNowStrict(new Date(issue.updatedAt), { addSuffix: true })}
           </p>
 
           <Button

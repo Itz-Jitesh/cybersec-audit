@@ -146,7 +146,7 @@ export function PagesList({
                 size={16}
               />
               <span className="w-28 shrink-0 text-right text-2xs text-text-400">
-                {formatDistanceToNow(page.updatedAt, { addSuffix: true })}
+                {formatDistanceToNow(new Date(page.updatedAt), { addSuffix: true })}
               </span>
               {(page.ownerId === currentUserId || canModerate) && (
                 <Button

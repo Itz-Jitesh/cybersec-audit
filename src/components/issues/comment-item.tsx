@@ -92,7 +92,7 @@ export function CommentItem({
             {comment.authorName}
           </span>
           <span className="text-xs text-text-400">
-            {formatDistanceToNowStrict(comment.createdAt, { addSuffix: true })}
+            {formatDistanceToNowStrict(new Date(comment.createdAt), { addSuffix: true })}
             {comment.isEdited && " · edited"}
           </span>
 

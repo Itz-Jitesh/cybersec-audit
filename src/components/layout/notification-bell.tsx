@@ -87,7 +87,7 @@ export function NotificationBell({ unreadCount }: { unreadCount: number }) {
                     {row.title}
                   </p>
                   <p className="mt-0.5 text-2xs text-text-400">
-                    {formatDistanceToNow(row.createdAt, { addSuffix: true })}
+                    {formatDistanceToNow(new Date(row.createdAt), { addSuffix: true })}
                   </p>
                 </div>
                 {row.readAt === null && (

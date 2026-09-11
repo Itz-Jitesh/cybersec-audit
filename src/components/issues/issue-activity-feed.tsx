@@ -121,11 +121,14 @@ export function IssueActivityFeed({ entries }: { entries: ActivityRow[] }) {
   return (
     <ol className="flex flex-col">
       {entries.map((entry, index) => {
+        const createdAt = new Date(entry.createdAt);
         const previous = entries[index - 1];
+        const prevCreatedAt = previous ? new Date(previous.createdAt) : null;
         const grouped =
           previous !== undefined &&
+          prevCreatedAt !== null &&
           previous.actorId === entry.actorId &&
-          entry.createdAt.getTime() - previous.createdAt.getTime() <
+          createdAt.getTime() - prevCreatedAt.getTime() <
             GROUP_WINDOW_MS;
 
         return (
@@ -152,7 +155,7 @@ export function IssueActivityFeed({ entries }: { entries: ActivityRow[] }) {
               {describe(entry)}
               <span className="text-text-400">
                 {" · "}
-                {formatDistanceToNowStrict(entry.createdAt, {
+                {formatDistanceToNowStrict(createdAt, {
                   addSuffix: true,
                 })}
               </span>

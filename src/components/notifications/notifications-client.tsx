@@ -58,7 +58,7 @@ function Row({
           <p className="mt-0.5 line-clamp-2 text-2xs text-text-300">{row.body}</p>
         )}
         <p className="mt-1 text-2xs text-text-400">
-          {formatDistanceToNow(row.createdAt, { addSuffix: true })}
+          {formatDistanceToNow(new Date(row.createdAt), { addSuffix: true })}
         </p>
       </div>
       <div className="flex shrink-0 items-start gap-1">
