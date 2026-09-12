@@ -1152,3 +1152,66 @@ enabled version; the server refuses either way.
 one that matters: a lead of one team is an outsider to every other, and nothing
 in the UI can enforce that, since a crafted request can carry any team id.
 
+
+---
+
+## Phase 14 — Appeal workflow & the silent notification failure  `[~]` awaiting review
+
+Not derived from `reference/07-BUILD-PHASES.md`. Requested directly: members
+should not open or close issues, a team lead should decide, and following an
+issue should tell the people responsible for it.
+
+- [x] `issue_appeals` table, two kinds in one table: `create` carries a proposed
+      issue, `complete` points at an existing one
+- [x] RLS: readable by the project, raised only for yourself and only as pending,
+      decided only by an approver who is not the requester, withdrawn only by the
+      requester while pending
+- [x] `can_decide_appeal` / `appeal_approvers`: the lead of the project's team,
+      with the three workspace admin roles as the standing fallback
+- [x] `notify_appeal` — approvers on insert, requester on decision
+- [x] `notify_issue_subscribed` — team leads, assignees and existing followers
+- [x] `require_lead_for_completion` — a completed state needs an approver
+- [x] Abilities `issue.create`, `issue.complete`, `appeal.create`, `appeal.decide`
+- [x] `src/actions/appeals.ts` — raise, request completion, approve, reject, withdraw
+- [x] `/projects/[projectId]/appeals` queue with Approve and Decline, plus
+      Withdraw on your own request
+- [x] The create modal raises an appeal for anyone who cannot create directly,
+      and hides the fields a lead decides
+- [x] Assignee avatars beside Subscribe in the issue detail
+- [x] `supabase/tests/appeals.sql` — 17 assertions, `pnpm db:test:appeals`
+
+### Notes from this phase
+
+**The rule as the user stated it.** Team lead, member and mentor all raise
+appeals; only `admin`, `president` and `co_president` create and complete
+issues directly. Nobody decides their own appeal, so a lead's own request
+escalates to a workspace admin. The admin-class fallback on `appeal_approvers`
+was the user's explicit choice, made because no team in the live database has a
+lead — a strict lead-only rule would have frozen every team.
+
+**Leads can still insert issues at the database level**, because approving a
+create appeal *is* an insert by the approver and RLS cannot tell the two apart.
+The direct-create refusal is `assertCan(issue.create)` in the action, which is
+the only layer that knows the difference. Worth knowing before trusting the
+policy alone on that one point.
+
+**The notification system had never worked.** Every activity trigger takes its
+actor from `auth.uid()`, which reads the `sub` claim; the Drizzle connection is
+the table owner and carries no JWT, so it was always null, and
+`0007_activity_cascade_guard` makes the triggers skip when it is. Measured on
+the live database: one comment, one subscriber, **zero** rows in both
+`issue_activity` and `notifications`. `withActor()` in `src/db/actor.ts` sets
+the claim for the transaction. The role is unchanged, so RLS is still bypassed
+on that path and `assertCan` is still the authorization — what the claim buys is
+an actor for the triggers and a database-side completion guard that can see who
+is asking. It is wired into subscribe, comment, react, issue update and every
+appeal write; the remaining actions still write without an actor and their
+activity rows are still skipped.
+
+**Subscribe was sharing a transition.** The button was `disabled={pending}` from
+the detail view's single `useTransition`, so any other in-flight edit — a
+description autosave, a state change — disabled it too, which reads as a dead
+control. It owns its own flag now.
+
+**DoD:** `pnpm typecheck`, `pnpm lint`, `pnpm build:verify` clean;
+`pnpm db:test` green across all nine suites (123 assertions).

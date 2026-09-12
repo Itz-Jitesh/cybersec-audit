@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { requestIssueCompletion } from "@/actions/appeals";
 import {
   addLink,
   removeLink,
@@ -141,6 +142,11 @@ export function IssueDetail({
   const [linkUrl, setLinkUrl] = useState("");
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [subscribed, setSubscribed] = useState(issue.isSubscribed);
+  // Its own flag rather than the shared transition: the Subscribe button was
+  // disabled by `pending`, so any other edit in flight — a description autosave,
+  // a state change — took it with it and it read as a dead control.
+  const [subscribing, setSubscribing] = useState(false);
+  const [completionAsked, setCompletionAsked] = useState(false);
 
   const assigneeIds = issue.assignees.map((assignee) => assignee.id);
   const labelIds = issue.labels.map((label) => label.id);
@@ -553,29 +559,98 @@ export function IssueDetail({
         <div className="mt-4 border-t border-border-subtle pt-3">
           <p className="text-xs text-text-400">
             Created by {issue.createdByName}{" "}
-            {formatDistanceToNowStrict(new Date(issue.createdAt), { addSuffix: true })}
+            {formatDistanceToNowStrict(new Date(issue.createdAt), {
+              addSuffix: true,
+            })}
           </p>
           <p className="mt-0.5 text-xs text-text-400">
             Updated{" "}
-            {formatDistanceToNowStrict(new Date(issue.updatedAt), { addSuffix: true })}
+            {formatDistanceToNowStrict(new Date(issue.updatedAt), {
+              addSuffix: true,
+            })}
           </p>
 
-          <Button
-            size="sm"
-            variant="secondary"
-            className="mt-3 w-full"
-            disabled={pending}
-            onClick={async () => {
-              const result = await toggleSubscription({ issueId: issue.id });
-              if (!result.ok) {
-                toast.error(result.error);
-                return;
-              }
-              setSubscribed(result.data.subscribed);
-            }}
-          >
-            {subscribed ? "Unsubscribe" : "Subscribe"}
-          </Button>
+          {/*
+            Who is handling this, shown where the decision to follow it is made.
+            Subscribing notifies the team lead, the assignees and the existing
+            followers, so it matters that you can see who that is before you do
+            it rather than after.
+          */}
+          <div className="mt-3 flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="flex-1"
+              disabled={subscribing}
+              onClick={async () => {
+                setSubscribing(true);
+                const result = await toggleSubscription({ issueId: issue.id });
+                setSubscribing(false);
+                if (!result.ok) {
+                  toast.error(result.error);
+                  return;
+                }
+                setSubscribed(result.data.subscribed);
+                // The follow changed who hears about this issue, and the
+                // activity feed and the header counts are rendered on the
+                // server, so the view has to be told.
+                onChanged();
+              }}
+            >
+              {subscribing
+                ? "Saving…"
+                : subscribed
+                  ? "Unsubscribe"
+                  : "Subscribe"}
+            </Button>
+
+            {issue.assignees.length > 0 ? (
+              <AvatarGroup
+                users={issue.assignees.map((assignee) => ({
+                  id: assignee.id,
+                  displayName: assignee.displayName,
+                  avatarUrl: assignee.avatarUrl,
+                }))}
+                max={3}
+                size={24}
+                className="shrink-0"
+              />
+            ) : (
+              <span className="shrink-0 text-2xs text-text-400">
+                Nobody assigned
+              </span>
+            )}
+          </div>
+
+          {/*
+            A completion appeal, for everyone who cannot complete the issue
+            themselves. canModerate is the same ability the action re-checks, so
+            an approver sees the state dropdown and no button, and everyone else
+            sees the button.
+          */}
+          {!canModerate && issue.stateGroup !== "completed" && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-1.5 w-full"
+              disabled={completionAsked}
+              onClick={async () => {
+                setCompletionAsked(true);
+                const result = await requestIssueCompletion({
+                  issueId: issue.id,
+                });
+                if (!result.ok) {
+                  setCompletionAsked(false);
+                  toast.error(result.error);
+                  return;
+                }
+                toast.success("Sent to the team lead for inspection.");
+                onChanged();
+              }}
+            >
+              {completionAsked ? "Awaiting inspection" : "Request completion"}
+            </Button>
+          )}
 
           <Button
             size="sm"
