@@ -364,6 +364,24 @@ export async function assertCan(
     };
   }
 
+  /**
+   * The workspace admin roles pass everything, checked once and up front.
+   *
+   * Requested directly: "admin — no auth check at all, I can do whatever I
+   * want." It was already the effect of every branch below, since each one
+   * folds isWorkspaceAdmin in somewhere, but saying it here makes it true by
+   * construction rather than by five separate coincidences, and a new ability
+   * cannot accidentally lock an admin out of their own workspace.
+   *
+   * Note what this does *not* cover, because it is not reached through
+   * assertCan: the issue_appeals_decide policy still refuses a self-decision,
+   * so an admin cannot approve their own appeal. That rule came from the user
+   * and is left standing.
+   */
+  if (await isWorkspaceAdmin(user.id)) {
+    return { ok: true };
+  }
+
   const scope =
     "teamId" in ability
       ? ability.teamId
