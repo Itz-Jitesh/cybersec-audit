@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, isNotNull, or } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
@@ -83,6 +83,27 @@ export function readsWholeWorkspace(role: string): boolean {
   return WORKSPACE_WIDE_READ_ROLES.has(role);
 }
 
+/**
+ * The caller's workspace role, or null when they hold no active membership.
+ *
+ * assertCan receives a SessionUser rather than the full CurrentUser, so the
+ * role is not already in hand there. Cached per request, so the branches that
+ * need it cost one query per request rather than one per check.
+ */
+export const roleOf = cache(async (userId: string): Promise<string | null> => {
+  const rows = await db
+    .select({ role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.userId, userId),
+        eq(workspaceMembers.isActive, true),
+      ),
+    )
+    .limit(1);
+  return rows[0]?.role ?? null;
+});
+
 /** admin, president or co_president — the three workspace-level admin roles. */
 export const isWorkspaceAdmin = cache(
   async (userId: string): Promise<boolean> => {
@@ -149,11 +170,59 @@ export const isTeamLead = cache(
  * team — the same four-way union the policies compute.
  */
 export const isProjectMember = cache(
-  async (userId: string, projectId?: string): Promise<boolean> => {
-    if (projectId) {
-      // Validate active member status for project access
+  async (userId: string, projectId: string): Promise<boolean> => {
+    if (await isWorkspaceAdmin(userId)) {
+      return true;
     }
-    return isActiveMember(userId);
+    if (await isMentor(userId)) {
+      return true;
+    }
+
+    const rows = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .leftJoin(
+        projectMembers,
+        and(
+          eq(projectMembers.projectId, projects.id),
+          eq(projectMembers.userId, userId),
+        ),
+      )
+      .leftJoin(
+        teamMembers,
+        and(
+          eq(teamMembers.teamId, projects.teamId),
+          eq(teamMembers.userId, userId),
+        ),
+      )
+      .where(
+        and(
+          eq(projects.id, projectId),
+          or(isNotNull(projectMembers.id), isNotNull(teamMembers.id)),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+);
+
+/**
+ * Membership of one team, for the team.read boundary.
+ *
+ * Separate from isTeamLead because reading a team is not leading it, and
+ * separate from isProjectMember because a team page exists before any project
+ * inside it does.
+ */
+export const isTeamMember = cache(
+  async (userId: string, teamId: string): Promise<boolean> => {
+    const rows = await db
+      .select({ id: teamMembers.id })
+      .from(teamMembers)
+      .where(
+        and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)),
+      )
+      .limit(1);
+    return rows.length > 0;
   },
 );
 
@@ -279,7 +348,13 @@ export async function assertCan(
       allowed = await isWorkspaceAdmin(user.id);
       break;
     case "team.read":
-      allowed = true;
+      // Every team is readable by the roles whose scope is the workspace; a
+      // plain member reads the teams they are on and no others, which is the
+      // same boundary the team policies compute.
+      allowed =
+        scope !== null &&
+        (readsWholeWorkspace((await roleOf(user.id)) ?? "") ||
+          (await isTeamMember(user.id, scope)));
       break;
     case "team.manage":
       allowed = scope !== null && (await isTeamLead(user.id, scope));
