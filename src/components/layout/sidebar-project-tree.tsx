@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CircleDot,
   FileText,
+  Inbox,
   Layers,
   RefreshCw,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { useSidebarStore } from "@/stores/sidebar-store";
 
 const PROJECT_SECTIONS = [
   { segment: "issues", label: "Issues", icon: CircleDot },
+  { segment: "appeals", label: "Requests", icon: Inbox },
   { segment: "cycles", label: "Cycles", icon: RefreshCw },
   { segment: "modules", label: "Modules", icon: Layers },
   { segment: "views", label: "Views", icon: Bookmark },
@@ -62,7 +64,9 @@ function ProjectBranch({
    * a wall of forty rows.
    */
   const open = useSidebarStore((state) =>
-    state.hasHydrated ? (state.expanded[`project:${project.id}`] ?? false) : false,
+    state.hasHydrated
+      ? (state.expanded[`project:${project.id}`] ?? false)
+      : false,
   );
   const base = `/projects/${project.id}`;
 

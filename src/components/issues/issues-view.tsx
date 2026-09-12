@@ -78,6 +78,8 @@ interface IssuesViewProps {
   canDelete: boolean;
   canModerate: boolean;
   canWrite: boolean;
+  /** False for leads, members and mentors: their button raises an appeal. */
+  canCreateDirect: boolean;
   currentUserId: string;
   fetchIssues: (filters?: PartialFilters) => Promise<IssueListItem[]>;
 }
@@ -95,6 +97,7 @@ export function IssuesView({
   canDelete,
   canModerate,
   canWrite,
+  canCreateDirect,
   currentUserId,
   fetchIssues,
 }: IssuesViewProps) {
@@ -562,7 +565,7 @@ export function IssuesView({
             onClick={() => setCreateOpen(true)}
           >
             <Plus size={14} strokeWidth={1.5} />
-            New issue
+            {canCreateDirect ? "New issue" : "Request issue"}
           </Button>
         )}
       </div>
@@ -587,7 +590,7 @@ export function IssuesView({
               </Button>
             ) : canWrite ? (
               <Button size="sm" onClick={() => setCreateOpen(true)}>
-                New issue
+                {canCreateDirect ? "New issue" : "Request issue"}
               </Button>
             ) : null
           }
@@ -703,6 +706,7 @@ export function IssuesView({
         labels={labels}
         cycles={cycles}
         modules={modules}
+        canCreateDirect={canCreateDirect}
         onCreated={refresh}
       />
 

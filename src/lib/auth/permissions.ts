@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, isNotNull, or } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
@@ -29,7 +29,8 @@ import {
  * throws, and nothing here reads the row it is deciding about.
  */
 
-export type WorkspaceRole = "admin" | "president" | "co_president" | "mentor" | "member";
+export type WorkspaceRole =
+  "admin" | "president" | "co_president" | "mentor" | "member";
 export type TeamRole = "lead" | "member";
 export type ProjectRole = "admin" | "member";
 
@@ -83,6 +84,27 @@ export function readsWholeWorkspace(role: string): boolean {
   return WORKSPACE_WIDE_READ_ROLES.has(role);
 }
 
+/**
+ * The caller's workspace role, or null when they hold no active membership.
+ *
+ * assertCan receives a SessionUser rather than the full CurrentUser, so the
+ * role is not already in hand there. Cached per request, so the branches that
+ * need it cost one query per request rather than one per check.
+ */
+export const roleOf = cache(async (userId: string): Promise<string | null> => {
+  const rows = await db
+    .select({ role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.userId, userId),
+        eq(workspaceMembers.isActive, true),
+      ),
+    )
+    .limit(1);
+  return rows[0]?.role ?? null;
+});
+
 /** admin, president or co_president — the three workspace-level admin roles. */
 export const isWorkspaceAdmin = cache(
   async (userId: string): Promise<boolean> => {
@@ -106,22 +128,20 @@ export const isWorkspaceAdmin = cache(
 );
 
 /** Mentor — read access to all teams and projects, no management. */
-export const isMentor = cache(
-  async (userId: string): Promise<boolean> => {
-    const rows = await db
-      .select({ role: workspaceMembers.role })
-      .from(workspaceMembers)
-      .where(
-        and(
-          eq(workspaceMembers.userId, userId),
-          eq(workspaceMembers.isActive, true),
-          eq(workspaceMembers.role, "mentor"),
-        ),
-      )
-      .limit(1);
-    return rows.length > 0;
-  },
-);
+export const isMentor = cache(async (userId: string): Promise<boolean> => {
+  const rows = await db
+    .select({ role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.userId, userId),
+        eq(workspaceMembers.isActive, true),
+        eq(workspaceMembers.role, "mentor"),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+});
 
 /** Workspace admin, or lead of this specific team. */
 export const isTeamLead = cache(
@@ -149,11 +169,81 @@ export const isTeamLead = cache(
  * team — the same four-way union the policies compute.
  */
 export const isProjectMember = cache(
-  async (userId: string, projectId?: string): Promise<boolean> => {
-    if (projectId) {
-      // Validate active member status for project access
+  async (userId: string, projectId: string): Promise<boolean> => {
+    if (await isWorkspaceAdmin(userId)) {
+      return true;
     }
-    return isActiveMember(userId);
+    if (await isMentor(userId)) {
+      return true;
+    }
+
+    const rows = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .leftJoin(
+        projectMembers,
+        and(
+          eq(projectMembers.projectId, projects.id),
+          eq(projectMembers.userId, userId),
+        ),
+      )
+      .leftJoin(
+        teamMembers,
+        and(
+          eq(teamMembers.teamId, projects.teamId),
+          eq(teamMembers.userId, userId),
+        ),
+      )
+      .where(
+        and(
+          eq(projects.id, projectId),
+          or(isNotNull(projectMembers.id), isNotNull(teamMembers.id)),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+);
+
+/**
+ * Membership of one team, for the team.read boundary.
+ *
+ * Separate from isTeamLead because reading a team is not leading it, and
+ * separate from isProjectMember because a team page exists before any project
+ * inside it does.
+ */
+export const isTeamMember = cache(
+  async (userId: string, teamId: string): Promise<boolean> => {
+    const rows = await db
+      .select({ id: teamMembers.id })
+      .from(teamMembers)
+      .where(
+        and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)),
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+);
+
+/**
+ * Who may decide an appeal, and therefore who may open an issue directly or mark
+ * one completed: the lead of the project's team, or a workspace admin role.
+ *
+ * isTeamLead already folds the three admin roles in, which is the fallback the
+ * user asked for — a team with no lead must not be a team where nothing can be
+ * approved.
+ */
+export const canDecideAppeal = cache(
+  async (userId: string, projectId: string): Promise<boolean> => {
+    const rows = await db
+      .select({ teamId: projects.teamId })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    if (rows.length === 0) {
+      return false;
+    }
+    return isTeamLead(userId, rows[0].teamId);
   },
 );
 
@@ -226,6 +316,17 @@ export type Ability =
   | { kind: "project.manage"; projectId: string }
   /** Creating or editing issues inside a project. */
   | { kind: "issue.write"; projectId: string }
+  /**
+   * Opening an issue without anyone's approval. Held by the workspace admin
+   * roles only: leads, members and mentors raise a create appeal instead.
+   */
+  | { kind: "issue.create"; projectId: string }
+  /** Marking an issue completed, which is the lead's inspection. */
+  | { kind: "issue.complete"; projectId: string }
+  /** Raising an appeal — anyone who may work on the project. */
+  | { kind: "appeal.create"; projectId: string }
+  /** Approving or rejecting one. */
+  | { kind: "appeal.decide"; projectId: string }
   /** Hard-deleting issues inside a project. */
   | { kind: "issue.delete"; projectId: string }
   /** Creating or editing a cycle. */
@@ -263,6 +364,24 @@ export async function assertCan(
     };
   }
 
+  /**
+   * The workspace admin roles pass everything, checked once and up front.
+   *
+   * Requested directly: "admin — no auth check at all, I can do whatever I
+   * want." It was already the effect of every branch below, since each one
+   * folds isWorkspaceAdmin in somewhere, but saying it here makes it true by
+   * construction rather than by five separate coincidences, and a new ability
+   * cannot accidentally lock an admin out of their own workspace.
+   *
+   * Note what this does *not* cover, because it is not reached through
+   * assertCan: the issue_appeals_decide policy still refuses a self-decision,
+   * so an admin cannot approve their own appeal. That rule came from the user
+   * and is left standing.
+   */
+  if (await isWorkspaceAdmin(user.id)) {
+    return { ok: true };
+  }
+
   const scope =
     "teamId" in ability
       ? ability.teamId
@@ -279,14 +398,29 @@ export async function assertCan(
       allowed = await isWorkspaceAdmin(user.id);
       break;
     case "team.read":
-      allowed = true;
+      // Every team is readable by the roles whose scope is the workspace; a
+      // plain member reads the teams they are on and no others, which is the
+      // same boundary the team policies compute.
+      allowed =
+        scope !== null &&
+        (readsWholeWorkspace((await roleOf(user.id)) ?? "") ||
+          (await isTeamMember(user.id, scope)));
       break;
     case "team.manage":
       allowed = scope !== null && (await isTeamLead(user.id, scope));
       break;
     case "project.read":
     case "issue.write":
+    case "appeal.create":
       allowed = scope !== null && (await isProjectMember(user.id, scope));
+      break;
+    case "issue.create":
+      // Deliberately the narrowest ability in the file. Everyone else appeals.
+      allowed = await isWorkspaceAdmin(user.id);
+      break;
+    case "issue.complete":
+    case "appeal.decide":
+      allowed = scope !== null && (await canDecideAppeal(user.id, scope));
       break;
     case "project.manage":
     case "issue.delete":
