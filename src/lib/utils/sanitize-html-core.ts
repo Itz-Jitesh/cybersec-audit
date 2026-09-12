@@ -1,8 +1,8 @@
 /**
  * Shared sanitisation constants and helpers used by both the server and client
- * modules.  DOMPurify itself is NOT imported here — each consumer brings its
- * own instance so that the server can use isomorphic-dompurify (jsdom) and the
- * client can use dompurify directly (browser DOM).
+ * modules. No engine is imported here — each consumer brings its own, because
+ * they cannot share one: the server parses with sanitize-html over htmlparser2,
+ * needing no DOM, and the client uses dompurify against the browser's own.
  */
 
 /** Tags TipTap emits with the extension set configured in rich-editor.tsx. */

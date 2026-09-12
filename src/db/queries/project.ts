@@ -77,22 +77,53 @@ export interface MemberRow {
   role: string;
 }
 
+/**
+ * Everyone who may work on this project: its explicit project_members rows plus
+ * every member of the project's team.
+ *
+ * The union is the point. Membership of the owning team *is* membership of the
+ * project — that is what is_project_member computes in RLS and what assertCan
+ * mirrors — but project_members only ever holds the creator and anyone added by
+ * hand. Selecting that table alone left the assignee picker, the @mention list
+ * and the member list showing the project's creator and nobody else, so a team
+ * could not be assigned work on its own project.
+ *
+ * A direct project row wins on role, since 'admin' there is a real grant that
+ * team membership does not confer.
+ */
 export async function getProjectMembers(
   projectId: string,
 ): Promise<MemberRow[]> {
-  return db
+  const rows = await db
     .select({
-      userId: projectMembers.userId,
+      userId: sql<string>`u.user_id`,
       displayName: sql<string>`coalesce(${profiles.displayName}, 'Member')`,
       email: sql<string>`coalesce(${profiles.email}, '')`,
       avatarUrl: profiles.avatarUrl,
-      role: projectMembers.role,
+      role: sql<string>`case when bool_or(u.role = 'admin') then 'admin' else 'member' end`,
     })
-    .from(projectMembers)
-    .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
-    .where(eq(projectMembers.projectId, projectId))
+    .from(
+      sql`(
+        select pm.user_id, pm.role::text as role
+          from ${projectMembers} pm
+         where pm.project_id = ${projectId}
+        union all
+        select tm.user_id, 'member' as role
+          from ${teamMembers} tm
+          join ${projects} p on p.id = ${projectId} and p.team_id = tm.team_id
+      ) as u`,
+    )
+    .leftJoin(profiles, sql`${profiles.id} = u.user_id`)
+    .groupBy(
+      sql`u.user_id`,
+      profiles.displayName,
+      profiles.email,
+      profiles.avatarUrl,
+    )
     .orderBy(asc(profiles.displayName))
     .limit(MEMBER_LIMIT);
+
+  return rows;
 }
 
 export async function getProjectStates(projectId: string) {

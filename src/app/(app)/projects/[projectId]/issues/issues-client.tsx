@@ -22,6 +22,7 @@ export function IssuesClient(props: {
   canDelete: boolean;
   canModerate: boolean;
   canWrite: boolean;
+  canCreateDirect: boolean;
   currentUserId: string;
 }) {
   return (

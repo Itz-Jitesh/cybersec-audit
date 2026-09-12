@@ -59,4 +59,26 @@ export const notificationType = pgEnum("notification_type", [
   "state_changed",
   "commented",
   "subscribed",
+  /** Someone started following an issue you lead, handle or follow. */
+  "subscribed_to",
+  /** A member asked for an issue to be created, or for one to be completed. */
+  "appeal_submitted",
+  "appeal_approved",
+  "appeal_rejected",
+]);
+
+/**
+ * What an appeal is asking for: a new issue, or the completion of one.
+ *
+ * Both travel through the same table because they share every other column and
+ * the same decision flow — a lead sees one queue, not two.
+ */
+export const appealKind = pgEnum("appeal_kind", ["create", "complete"]);
+
+export const appealStatus = pgEnum("appeal_status", [
+  "pending",
+  "approved",
+  "rejected",
+  /** Withdrawn by the person who raised it. */
+  "cancelled",
 ]);
