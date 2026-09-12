@@ -44,6 +44,7 @@ delete from issue_appeals where project_id = 'a9000000-0000-4000-8000-0000000000
 delete from notifications where user_id in (
   select id from profiles where email like '%@appeal-test.invalid'
 );
+delete from issue_subscribers where issue_id = 'a9000000-0000-4000-8000-000000000030';
 delete from issues where project_id = 'a9000000-0000-4000-8000-000000000020';
 delete from states where project_id = 'a9000000-0000-4000-8000-000000000020';
 delete from projects where identifier = 'APTS';
@@ -361,7 +362,94 @@ end $$;
 commit;
 
 -- ---------------------------------------------------------------------------
--- 11. A completion appeal needs an issue, and a create appeal must not carry
+-- 11. A subscription is a statement about yourself. 0013 pins the row to the
+--     acting user: the member may follow an issue they are not assigned to, and
+--     may not follow or unfollow on anyone else's behalf.
+-- ---------------------------------------------------------------------------
+begin;
+select set_config('role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"a9000000-0000-4000-8000-000000000002"}', true);
+do $$
+declare n int;
+begin
+  -- The member is not an assignee of the fixture issue; membership is the only
+  -- thing that should matter.
+  select count(*) into n from issue_assignees
+   where issue_id = 'a9000000-0000-4000-8000-000000000030'
+     and user_id = 'a9000000-0000-4000-8000-000000000002';
+  perform pg_temp.appeal_record('the follower is not an assignee',
+    n = 0, 'saw ' || n || ' assignee rows, expected 0');
+
+  select count(*) into n from issue_subscribers
+   where issue_id = 'a9000000-0000-4000-8000-000000000030'
+     and user_id = 'a9000000-0000-4000-8000-000000000002';
+  perform pg_temp.appeal_record('an unassigned member may follow an issue',
+    n = 1, 'saw ' || n || ' subscriber rows, expected 1');
+
+  begin
+    insert into issue_subscribers (issue_id, user_id)
+    values ('a9000000-0000-4000-8000-000000000030',
+            'a9000000-0000-4000-8000-000000000001');
+    perform pg_temp.appeal_record('cannot subscribe somebody else',
+      false, 'the insert was allowed');
+  exception when others then
+    perform pg_temp.appeal_record('cannot subscribe somebody else',
+      true, 'refused: ' || left(sqlerrm, 60));
+  end;
+end $$;
+commit;
+
+-- The lead follows the issue, so there is someone else's row to attack.
+begin;
+select set_config('role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"a9000000-0000-4000-8000-000000000001"}', true);
+do $$
+begin
+  insert into issue_subscribers (issue_id, user_id)
+  values ('a9000000-0000-4000-8000-000000000030',
+          'a9000000-0000-4000-8000-000000000001')
+  on conflict (issue_id, user_id) do nothing;
+end $$;
+commit;
+
+begin;
+select set_config('role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"a9000000-0000-4000-8000-000000000002"}', true);
+do $$
+declare n int;
+begin
+  delete from issue_subscribers
+   where issue_id = 'a9000000-0000-4000-8000-000000000030'
+     and user_id = 'a9000000-0000-4000-8000-000000000001';
+  get diagnostics n = row_count;
+  perform pg_temp.appeal_record('cannot unsubscribe somebody else',
+    n = 0, 'deleted ' || n || ' rows, expected 0');
+
+  -- The with-check refuses this outright rather than matching no rows, since the
+  -- row is visible to the member and it is the *new* user_id that fails.
+  begin
+    update issue_subscribers
+       set user_id = 'a9000000-0000-4000-8000-000000000001'
+     where issue_id = 'a9000000-0000-4000-8000-000000000030'
+       and user_id = 'a9000000-0000-4000-8000-000000000002';
+    perform pg_temp.appeal_record('cannot hand your subscription to someone else',
+      false, 'the update was allowed');
+  exception when others then
+    perform pg_temp.appeal_record('cannot hand your subscription to someone else',
+      true, 'refused: ' || left(sqlerrm, 60));
+  end;
+
+  delete from issue_subscribers
+   where issue_id = 'a9000000-0000-4000-8000-000000000030'
+     and user_id = 'a9000000-0000-4000-8000-000000000002';
+  get diagnostics n = row_count;
+  perform pg_temp.appeal_record('may unfollow your own subscription',
+    n = 1, 'deleted ' || n || ' rows, expected 1');
+end $$;
+commit;
+
+-- ---------------------------------------------------------------------------
+-- 12. A completion appeal needs an issue, and a create appeal must not carry
 --     one — the shape constraint, checked as the owner so no policy is in play.
 -- ---------------------------------------------------------------------------
 begin;
@@ -403,6 +491,7 @@ delete from issue_appeals where project_id = 'a9000000-0000-4000-8000-0000000000
 delete from notifications where user_id in (
   select id from profiles where email like '%@appeal-test.invalid'
 );
+delete from issue_subscribers where issue_id = 'a9000000-0000-4000-8000-000000000030';
 delete from issues where project_id = 'a9000000-0000-4000-8000-000000000020';
 delete from states where project_id = 'a9000000-0000-4000-8000-000000000020';
 delete from projects where identifier = 'APTS';
