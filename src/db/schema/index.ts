@@ -1,3 +1,4 @@
+export * from "@/db/schema/appeals";
 export * from "@/db/schema/collaboration";
 export * from "@/db/schema/cycles";
 export * from "@/db/schema/enums";

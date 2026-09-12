@@ -13,6 +13,7 @@ import {
   ok,
 } from "@/actions/result";
 import { db } from "@/db";
+import { withActor } from "@/db/actor";
 import { commentReactions, comments, issues } from "@/db/schema";
 import { assertCan } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -82,17 +83,19 @@ export async function createComment(
 
     // The insert fires auto_subscribe and fanout_notifications. Notifications
     // are never written from here; the trigger owns that table.
-    const [created] = await db
-      .insert(comments)
-      .values({
-        issueId: parsed.data.issueId,
-        authorId: user.id,
-        // Sanitised on the way in, so the stored value is safe for every
-        // reader forever rather than depending on each renderer remembering.
-        contentHtml: safeHtml,
-        contentJson: parsed.data.contentJson ?? null,
-      })
-      .returning({ id: comments.id });
+    const [created] = await withActor(user.id, (tx) =>
+      tx
+        .insert(comments)
+        .values({
+          issueId: parsed.data.issueId,
+          authorId: user.id,
+          // Sanitised on the way in, so the stored value is safe for every
+          // reader forever rather than depending on each renderer remembering.
+          contentHtml: safeHtml,
+          contentJson: parsed.data.contentJson ?? null,
+        })
+        .returning({ id: comments.id }),
+    );
 
     revalidatePath(`/projects/${projectId}/issues/${parsed.data.issueId}`);
     return ok(created);
@@ -217,11 +220,13 @@ export async function toggleReaction(
       return ok({ reacted: false });
     }
 
-    await db.insert(commentReactions).values({
-      commentId: parsed.data.commentId,
-      userId: user.id,
-      emoji: parsed.data.emoji,
-    });
+    await withActor(user.id, (tx) =>
+      tx.insert(commentReactions).values({
+        commentId: parsed.data.commentId,
+        userId: user.id,
+        emoji: parsed.data.emoji,
+      }),
+    );
 
     revalidatePath(`/projects/${context.projectId}/issues/${context.issueId}`);
     return ok({ reacted: true });

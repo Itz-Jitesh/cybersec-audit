@@ -3,6 +3,7 @@ import "server-only";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
+import type { notificationType } from "@/db/schema";
 import { issues, notifications, profiles, projects } from "@/db/schema";
 
 /**
@@ -17,7 +18,8 @@ const NOTIFICATION_LIMIT = 50;
 
 export interface NotificationRow {
   id: string;
-  type: "mention" | "assigned" | "state_changed" | "commented" | "subscribed";
+  /** Derived from the enum so a new notification kind cannot be forgotten here. */
+  type: (typeof notificationType.enumValues)[number];
   title: string;
   body: string | null;
   issueId: string | null;

@@ -12,6 +12,7 @@ import {
   ok,
 } from "@/actions/result";
 import { db } from "@/db";
+import { withActor } from "@/db/actor";
 import {
   issueAssignees,
   issueAttachments,
@@ -117,8 +118,11 @@ export async function createIssue(
     if (!parsed.success) return invalid(parsed.error);
 
     const user = await getCurrentUser();
+    // issue.create, not issue.write: opening an issue outright is the workspace
+    // admin roles' alone. A lead, a member or a mentor raises a create appeal
+    // and an approver turns it into the issue — see src/actions/appeals.ts.
     const guard = await assertCan(user, {
-      kind: "issue.write",
+      kind: "issue.create",
       projectId: parsed.data.projectId,
     });
     if (!guard.ok) return denied(guard);
@@ -238,34 +242,58 @@ export async function updateIssue(input: unknown): Promise<ActionResult<null>> {
 
     const guard = await guardIssue(parsed.data.issueId, "issue.write");
     if (!guard.ok) return guard.result;
+    if (!guard.userId) return fail("You must be signed in.", "UNAUTHENTICATED");
 
     const { issueId, ...changes } = parsed.data;
 
-    await db
-      .update(issues)
-      .set({
-        ...(changes.name !== undefined && { name: changes.name }),
-        ...(changes.descriptionHtml !== undefined && {
-          descriptionHtml: sanitizeRichText(changes.descriptionHtml),
-        }),
-        ...(changes.descriptionJson !== undefined && {
-          descriptionJson: changes.descriptionJson,
-        }),
-        ...(changes.stateId !== undefined && { stateId: changes.stateId }),
-        ...(changes.priority !== undefined && { priority: changes.priority }),
-        ...(changes.parentId !== undefined && { parentId: changes.parentId }),
-        ...(changes.cycleId !== undefined && { cycleId: changes.cycleId }),
-        ...(changes.startDate !== undefined && {
-          startDate: changes.startDate,
-        }),
-        ...(changes.targetDate !== undefined && {
-          targetDate: changes.targetDate,
-        }),
-        ...(changes.estimatePoint !== undefined && {
-          estimatePoint: changes.estimatePoint,
-        }),
-      })
-      .where(eq(issues.id, issueId));
+    // A state change has to be attributable: log_issue_activity takes its actor
+    // from auth.uid(), and require_lead_for_completion decides whether this
+    // person may move the issue into a completed state at all.
+    const result = await withActor(guard.userId, (tx) =>
+      tx
+        .update(issues)
+        .set({
+          ...(changes.name !== undefined && { name: changes.name }),
+          ...(changes.descriptionHtml !== undefined && {
+            descriptionHtml: sanitizeRichText(changes.descriptionHtml),
+          }),
+          ...(changes.descriptionJson !== undefined && {
+            descriptionJson: changes.descriptionJson,
+          }),
+          ...(changes.stateId !== undefined && { stateId: changes.stateId }),
+          ...(changes.priority !== undefined && { priority: changes.priority }),
+          ...(changes.parentId !== undefined && { parentId: changes.parentId }),
+          ...(changes.cycleId !== undefined && { cycleId: changes.cycleId }),
+          ...(changes.startDate !== undefined && {
+            startDate: changes.startDate,
+          }),
+          ...(changes.targetDate !== undefined && {
+            targetDate: changes.targetDate,
+          }),
+          ...(changes.estimatePoint !== undefined && {
+            estimatePoint: changes.estimatePoint,
+          }),
+        })
+        .where(eq(issues.id, issueId))
+        .returning({ id: issues.id }),
+    ).catch((error: unknown) => {
+      // The completion gate raises rather than returning, because a trigger has
+      // no other way to refuse. Anything else is a real failure.
+      if (
+        error instanceof Error &&
+        error.message.includes("COMPLETION_NEEDS_LEAD")
+      ) {
+        return "needs-lead" as const;
+      }
+      throw error;
+    });
+
+    if (result === "needs-lead") {
+      return fail(
+        "Only a team lead can mark an issue completed. Raise a completion appeal instead.",
+        "FORBIDDEN",
+      );
+    }
 
     revalidateAggregates();
     return ok(null);
@@ -826,6 +854,7 @@ export async function toggleSubscription(
     const guard = await guardIssue(parsed.data.issueId, "issue.write");
     if (!guard.ok) return guard.result;
     if (!guard.userId) return fail("You must be signed in.", "UNAUTHENTICATED");
+    const actorId = guard.userId;
 
     const [existing] = await db
       .select({ id: issueSubscribers.id })
@@ -833,7 +862,7 @@ export async function toggleSubscription(
       .where(
         and(
           eq(issueSubscribers.issueId, parsed.data.issueId),
-          eq(issueSubscribers.userId, guard.userId),
+          eq(issueSubscribers.userId, actorId),
         ),
       )
       .limit(1);
@@ -846,10 +875,14 @@ export async function toggleSubscription(
       return ok({ subscribed: false });
     }
 
-    await db
-      .insert(issueSubscribers)
-      .values({ issueId: parsed.data.issueId, userId: guard.userId })
-      .onConflictDoNothing();
+    // Through withActor so notify_issue_subscribed can attribute the follow and
+    // tell the team lead, the assignees and the existing followers about it.
+    await withActor(actorId, (tx) =>
+      tx
+        .insert(issueSubscribers)
+        .values({ issueId: parsed.data.issueId, userId: actorId })
+        .onConflictDoNothing(),
+    );
 
     revalidateAggregates();
     return ok({ subscribed: true });

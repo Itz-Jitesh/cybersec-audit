@@ -53,6 +53,7 @@ export default async function IssuesPage({ params }: IssuesPageProps) {
     canDelete,
     canManage,
     canWrite,
+    canCreateDirect,
   ] = await Promise.all([
     getIssuesForProject({
       projectId,
@@ -71,6 +72,7 @@ export default async function IssuesPage({ params }: IssuesPageProps) {
     assertCan(user, { kind: "issue.delete", projectId }),
     assertCan(user, { kind: "project.manage", projectId }),
     assertCan(user, { kind: "issue.write", projectId }),
+    assertCan(user, { kind: "issue.create", projectId }),
   ]);
 
   return (
@@ -91,6 +93,7 @@ export default async function IssuesPage({ params }: IssuesPageProps) {
         canDelete={canDelete.ok}
         canModerate={canManage.ok}
         canWrite={canWrite.ok}
+        canCreateDirect={canCreateDirect.ok}
         currentUserId={user.id}
       />
     </div>

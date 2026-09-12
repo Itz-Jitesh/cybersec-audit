@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { createIssueAppeal } from "@/actions/appeals";
 import { createIssue } from "@/actions/issues";
 import type { EditorValue } from "@/components/editor/rich-editor";
 import type { StateOption } from "@/components/issues/issue-row-dropdowns";
@@ -52,6 +53,13 @@ interface IssueCreateModalProps {
   cycles: { id: string; name: string }[];
   modules: { id: string; name: string }[];
   defaultStateId?: string;
+  /**
+   * False for everyone who cannot open an issue outright — leads, members and
+   * mentors. The modal then raises a create appeal instead, and the fields a
+   * lead decides (state, assignees, labels, cycle, dates) are hidden, because
+   * offering them would imply they survive the request, and they do not.
+   */
+  canCreateDirect?: boolean;
   onCreated: () => void;
 }
 
@@ -80,6 +88,7 @@ export function IssueCreateModal({
   cycles,
   modules,
   defaultStateId,
+  canCreateDirect = true,
   onCreated,
 }: IssueCreateModalProps) {
   const fallbackState =
@@ -112,6 +121,31 @@ export function IssueCreateModal({
   async function submit() {
     if (name.trim().length === 0) return;
     setSaving(true);
+
+    if (!canCreateDirect) {
+      const appeal = await createIssueAppeal({
+        projectId,
+        title: name.trim(),
+        descriptionHtml: description?.html,
+        descriptionJson: description?.json,
+        proposedPriority: priority,
+      });
+
+      setSaving(false);
+
+      if (!appeal.ok) {
+        toast.error(appeal.error);
+        return;
+      }
+
+      toast.success("Sent to the team lead for approval.");
+      onCreated();
+      setName("");
+      setDescription(null);
+      setEditorKey((key) => key + 1);
+      if (!createMore) onOpenChange(false);
+      return;
+    }
 
     const result = await createIssue({
       projectId,
@@ -152,7 +186,9 @@ export function IssueCreateModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[640px]">
         <DialogHeader>
-          <DialogTitle>New issue</DialogTitle>
+          <DialogTitle>
+            {canCreateDirect ? "New issue" : "Request an issue"}
+          </DialogTitle>
         </DialogHeader>
 
         <Input
@@ -172,228 +208,245 @@ export function IssueCreateModal({
           />
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Chip>
-                {state ? (
-                  <>
-                    <StateIcon
-                      group={state.group}
-                      color={state.color}
-                      size={12}
-                    />
-                    {state.name}
-                  </>
-                ) : (
-                  "State"
-                )}
-              </Chip>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" align="start" className="w-48">
-              {states.map((option) => (
-                <DropdownMenuItem
-                  key={option.id}
-                  onSelect={() => setStateId(option.id)}
-                  className="gap-2"
-                >
-                  <StateIcon
-                    group={option.group}
-                    color={option.color}
-                    size={14}
-                  />
-                  {option.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Chip>
-                <PriorityIcon priority={priority} size={14} />
-                <span className="capitalize">{priority}</span>
-              </Chip>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" align="start" className="w-40">
-              {PRIORITIES.map((option) => (
-                <DropdownMenuItem
-                  key={option}
-                  onSelect={() => setPriority(option)}
-                  className="gap-2 capitalize"
-                >
-                  <PriorityIcon priority={option} size={14} />
-                  {option}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Chip>
-                {assigneeIds.length === 0
-                  ? "Assignees"
-                  : `${assigneeIds.length} assigned`}
-              </Chip>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="bottom"
-              align="start"
-              className="max-h-72 w-56 overflow-y-auto"
-            >
-              {members.map((member) => (
-                <DropdownMenuCheckboxItem
-                  key={member.userId}
-                  checked={assigneeIds.includes(member.userId)}
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    setAssigneeIds((current) => toggle(current, member.userId));
-                  }}
-                  className="gap-2"
-                >
-                  <MemberAvatar
-                    user={{
-                      id: member.userId,
-                      displayName: member.displayName,
-                      avatarUrl: member.avatarUrl,
-                    }}
-                    size={16}
-                  />
-                  {member.displayName}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Chip>
-                {labelIds.length === 0 ? "Labels" : `${labelIds.length} labels`}
-              </Chip>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="bottom"
-              align="start"
-              className="max-h-72 w-56 overflow-y-auto"
-            >
-              {labels.map((label) => (
-                <DropdownMenuCheckboxItem
-                  key={label.id}
-                  checked={labelIds.includes(label.id)}
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    setLabelIds((current) => toggle(current, label.id));
-                  }}
-                  className="gap-2"
-                >
-                  <span
-                    aria-hidden
-                    className="size-2 rounded-full"
-                    style={{ backgroundColor: label.color }}
-                  />
-                  {label.name}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {cycles.length > 0 && (
+        {/* The fields a lead decides are not shown on a request. */}
+        {canCreateDirect && (
+          <div className="flex flex-wrap gap-1.5">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Chip>
-                  {cycles.find((cycle) => cycle.id === cycleId)?.name ??
-                    "Cycle"}
+                  {state ? (
+                    <>
+                      <StateIcon
+                        group={state.group}
+                        color={state.color}
+                        size={12}
+                      />
+                      {state.name}
+                    </>
+                  ) : (
+                    "State"
+                  )}
                 </Chip>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="bottom" align="start" className="w-48">
-                <DropdownMenuItem onSelect={() => setCycleId(null)}>
-                  No cycle
-                </DropdownMenuItem>
-                {cycles.map((cycle) => (
+                {states.map((option) => (
                   <DropdownMenuItem
-                    key={cycle.id}
-                    onSelect={() => setCycleId(cycle.id)}
+                    key={option.id}
+                    onSelect={() => setStateId(option.id)}
+                    className="gap-2"
                   >
-                    {cycle.name}
+                    <StateIcon
+                      group={option.group}
+                      color={option.color}
+                      size={14}
+                    />
+                    {option.name}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
 
-          {modules.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Chip>
-                  {moduleIds.length === 0
-                    ? "Modules"
-                    : `${moduleIds.length} modules`}
+                  <PriorityIcon priority={priority} size={14} />
+                  <span className="capitalize">{priority}</span>
                 </Chip>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="bottom" align="start" className="w-56">
-                {modules.map((module) => (
+              <DropdownMenuContent side="bottom" align="start" className="w-40">
+                {PRIORITIES.map((option) => (
+                  <DropdownMenuItem
+                    key={option}
+                    onSelect={() => setPriority(option)}
+                    className="gap-2 capitalize"
+                  >
+                    <PriorityIcon priority={option} size={14} />
+                    {option}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Chip>
+                  {assigneeIds.length === 0
+                    ? "Assignees"
+                    : `${assigneeIds.length} assigned`}
+                </Chip>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="bottom"
+                align="start"
+                className="max-h-72 w-56 overflow-y-auto"
+              >
+                {members.map((member) => (
                   <DropdownMenuCheckboxItem
-                    key={module.id}
-                    checked={moduleIds.includes(module.id)}
+                    key={member.userId}
+                    checked={assigneeIds.includes(member.userId)}
                     onSelect={(event) => {
                       event.preventDefault();
-                      setModuleIds((current) => toggle(current, module.id));
+                      setAssigneeIds((current) =>
+                        toggle(current, member.userId),
+                      );
                     }}
+                    className="gap-2"
                   >
-                    {module.name}
+                    <MemberAvatar
+                      user={{
+                        id: member.userId,
+                        displayName: member.displayName,
+                        avatarUrl: member.avatarUrl,
+                      }}
+                      size={16}
+                    />
+                    {member.displayName}
                   </DropdownMenuCheckboxItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-        </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <Label htmlFor="startDate" className="text-xs">
-              Start date
-            </Label>
-            <Input
-              id="startDate"
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
-              className="mt-1"
-            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Chip>
+                  {labelIds.length === 0
+                    ? "Labels"
+                    : `${labelIds.length} labels`}
+                </Chip>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="bottom"
+                align="start"
+                className="max-h-72 w-56 overflow-y-auto"
+              >
+                {labels.map((label) => (
+                  <DropdownMenuCheckboxItem
+                    key={label.id}
+                    checked={labelIds.includes(label.id)}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      setLabelIds((current) => toggle(current, label.id));
+                    }}
+                    className="gap-2"
+                  >
+                    <span
+                      aria-hidden
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: label.color }}
+                    />
+                    {label.name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {cycles.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Chip>
+                    {cycles.find((cycle) => cycle.id === cycleId)?.name ??
+                      "Cycle"}
+                  </Chip>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  side="bottom"
+                  align="start"
+                  className="w-48"
+                >
+                  <DropdownMenuItem onSelect={() => setCycleId(null)}>
+                    No cycle
+                  </DropdownMenuItem>
+                  {cycles.map((cycle) => (
+                    <DropdownMenuItem
+                      key={cycle.id}
+                      onSelect={() => setCycleId(cycle.id)}
+                    >
+                      {cycle.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {modules.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Chip>
+                    {moduleIds.length === 0
+                      ? "Modules"
+                      : `${moduleIds.length} modules`}
+                  </Chip>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  side="bottom"
+                  align="start"
+                  className="w-56"
+                >
+                  {modules.map((module) => (
+                    <DropdownMenuCheckboxItem
+                      key={module.id}
+                      checked={moduleIds.includes(module.id)}
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        setModuleIds((current) => toggle(current, module.id));
+                      }}
+                    >
+                      {module.name}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
-          <div>
-            <Label htmlFor="targetDate" className="text-xs">
-              Target date
-            </Label>
-            <Input
-              id="targetDate"
-              type="date"
-              value={targetDate}
-              onChange={(event) => setTargetDate(event.target.value)}
-              className="mt-1"
-            />
+        )}
+
+        {canCreateDirect && (
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label htmlFor="startDate" className="text-xs">
+                Start date
+              </Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="targetDate" className="text-xs">
+                Target date
+              </Label>
+              <Input
+                id="targetDate"
+                type="date"
+                value={targetDate}
+                onChange={(event) => setTargetDate(event.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="estimate" className="text-xs">
+                Estimate
+              </Label>
+              <Input
+                id="estimate"
+                type="number"
+                min={0}
+                max={21}
+                value={estimate}
+                onChange={(event) => setEstimate(event.target.value)}
+                className="mt-1"
+              />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="estimate" className="text-xs">
-              Estimate
-            </Label>
-            <Input
-              id="estimate"
-              type="number"
-              min={0}
-              max={21}
-              value={estimate}
-              onChange={(event) => setEstimate(event.target.value)}
-              className="mt-1"
-            />
-          </div>
-        </div>
+        )}
 
         <DialogFooter className="items-center sm:justify-between">
           <label className="flex items-center gap-2 text-xs text-text-300">
             <Switch checked={createMore} onCheckedChange={setCreateMore} />
-            Create more
+            {canCreateDirect ? "Create more" : "Request more"}
           </label>
 
           <div className="flex gap-2">
@@ -409,7 +462,13 @@ export function IssueCreateModal({
               disabled={saving || name.trim().length === 0}
               onClick={submit}
             >
-              {saving ? "Creating…" : "Create issue"}
+              {saving
+                ? canCreateDirect
+                  ? "Creating…"
+                  : "Sending…"
+                : canCreateDirect
+                  ? "Create issue"
+                  : "Send request"}
             </Button>
           </div>
         </DialogFooter>
