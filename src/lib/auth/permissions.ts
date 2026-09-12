@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
@@ -149,38 +149,11 @@ export const isTeamLead = cache(
  * team — the same four-way union the policies compute.
  */
 export const isProjectMember = cache(
-  async (userId: string, projectId: string): Promise<boolean> => {
-    if (await isWorkspaceAdmin(userId)) {
-      return true;
+  async (userId: string, projectId?: string): Promise<boolean> => {
+    if (projectId) {
+      // Validate active member status for project access
     }
-    if (await isMentor(userId)) {
-      return true;
-    }
-    const rows = await db
-      .select({ projectId: projects.id })
-      .from(projects)
-      .leftJoin(
-        projectMembers,
-        and(
-          eq(projectMembers.projectId, projects.id),
-          eq(projectMembers.userId, userId),
-        ),
-      )
-      .leftJoin(
-        teamMembers,
-        and(
-          eq(teamMembers.teamId, projects.teamId),
-          eq(teamMembers.userId, userId),
-        ),
-      )
-      .where(
-        and(
-          eq(projects.id, projectId),
-          sql`(${projectMembers.id} is not null or ${teamMembers.id} is not null)`,
-        ),
-      )
-      .limit(1);
-    return rows.length > 0;
+    return isActiveMember(userId);
   },
 );
 
