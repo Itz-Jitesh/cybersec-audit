@@ -276,7 +276,8 @@ export function IssuesView({
    */
   const handlers: IssueRowHandlers = useMemo(
     () => ({
-      onOpen: (issueId) => setPeekId(issueId),
+      onOpen: (issueId) =>
+        router.push(`/projects/${projectId}/issues/${issueId}`),
 
       onSelect: (issueId, event) => {
         setSelected((current) => {
@@ -411,7 +412,18 @@ export function IssuesView({
         })();
       },
     }),
-    [issues, members, labels, stateOf, mutate, queryClient, queryKey, refresh],
+    [
+      issues,
+      members,
+      labels,
+      stateOf,
+      mutate,
+      queryClient,
+      queryKey,
+      refresh,
+      projectId,
+      router,
+    ],
   );
 
   /**
@@ -449,8 +461,9 @@ export function IssuesView({
   );
 
   const handleOpen = useCallback(
-    (issueId: string) => setPeekId(issueId),
-    [],
+    (issueId: string) =>
+      router.push(`/projects/${projectId}/issues/${issueId}`),
+    [projectId, router],
   );
 
   const handleQuickAdd = useCallback(
