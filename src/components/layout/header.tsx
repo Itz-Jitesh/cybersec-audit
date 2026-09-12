@@ -106,12 +106,6 @@ export function Header({
           </div>
           <DropdownMenuSeparator />
           {/*
-            Two-factor enrolment used to be linked here and is not any more.
-            src/middleware.ts sends an admin, president or co_president without
-            an aal2 session to /mfa on its own, so the route is reached when it
-            is needed and the menu entry only offered a screen nobody chooses
-            to visit. The route itself is unchanged.
-
             Sign out is an onSelect handler rather than a <form> inside the
             item: Radix closes the menu on select and unmounts its contents,
             which removed the form before submit could fire.

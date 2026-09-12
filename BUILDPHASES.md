@@ -1215,3 +1215,45 @@ control. It owns its own flag now.
 
 **DoD:** `pnpm typecheck`, `pnpm lint`, `pnpm build:verify` clean;
 `pnpm db:test` green across all nine suites (123 assertions).
+
+---
+
+## Phase 15 — Second factor removed  `[~]` awaiting review
+
+Requested directly, and it contradicts the specifications: `docs/02-PRD.md`,
+`docs/03-TRD.md`, `docs/06-UX-LAYOUT-SPEC.md`, `docs/09-DEPLOYMENT.md` and
+`docs/supabase-config.md` all describe TOTP enrolment for `admin`, `president`
+and `co_president`. The user removed it. Everyone signs in with Google or GitHub
+and nothing more, privileged roles included.
+
+- [x] The `MFA_REQUIRED_ROLES` set, the aal2 lookup and the `/mfa` redirect gone
+      from `src/middleware.ts`, leaving three rules: refresh, require a session,
+      reject a deactivated membership
+- [x] `src/app/(auth)/mfa/` deleted — page, flow and OTP input
+- [x] `src/lib/qr.ts` and its test deleted; the enrolment QR was the only caller
+- [x] `qrcode` and `@types/qrcode` removed, now unused
+- [x] The stale comment in `src/components/layout/header.tsx` that explained why
+      enrolment was not linked there
+
+### Notes from this phase
+
+**What this costs.** An admin's Google or GitHub account is now the only thing
+between an attacker and every team's data, the invite list and role assignment.
+The workspace is still invite-gated so it is not open to the internet, and these
+are ~30 club members rather than a payroll system, but a phished admin login is
+no longer slowed down by anything. Raised once, the user reaffirmed it, and it
+is their application.
+
+**The enrolled factor still exists.** `itsjitesh.work@gmail.com` has one
+verified TOTP factor in `auth.mfa_factors` from 2026-09-08. Nothing reads it any
+more — Supabase only challenges when the application asks, and nothing asks — so
+an OAuth sign-in now produces an aal1 session and proceeds. It is inert rather
+than harmful, and deleting it is a one-line change if the user wants the slate
+clean.
+
+**If it is ever reinstated** it has to come from the user, not from the docs. A
+future session reading `docs/03-TRD.md` will find the requirement still written
+there.
+
+**DoD:** `pnpm typecheck`, `pnpm lint`, `pnpm build:verify`, `pnpm check:tokens`
+clean; `/mfa` no longer exists; no route gates on a second factor.
