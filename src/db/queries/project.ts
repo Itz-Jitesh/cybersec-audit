@@ -114,7 +114,12 @@ export async function getProjectMembers(
       ) as u`,
     )
     .leftJoin(profiles, sql`${profiles.id} = u.user_id`)
-    .groupBy(sql`u.user_id`, profiles.displayName, profiles.email, profiles.avatarUrl)
+    .groupBy(
+      sql`u.user_id`,
+      profiles.displayName,
+      profiles.email,
+      profiles.avatarUrl,
+    )
     .orderBy(asc(profiles.displayName))
     .limit(MEMBER_LIMIT);
 

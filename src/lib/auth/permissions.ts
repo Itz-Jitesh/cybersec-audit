@@ -29,7 +29,8 @@ import {
  * throws, and nothing here reads the row it is deciding about.
  */
 
-export type WorkspaceRole = "admin" | "president" | "co_president" | "mentor" | "member";
+export type WorkspaceRole =
+  "admin" | "president" | "co_president" | "mentor" | "member";
 export type TeamRole = "lead" | "member";
 export type ProjectRole = "admin" | "member";
 
@@ -127,22 +128,20 @@ export const isWorkspaceAdmin = cache(
 );
 
 /** Mentor — read access to all teams and projects, no management. */
-export const isMentor = cache(
-  async (userId: string): Promise<boolean> => {
-    const rows = await db
-      .select({ role: workspaceMembers.role })
-      .from(workspaceMembers)
-      .where(
-        and(
-          eq(workspaceMembers.userId, userId),
-          eq(workspaceMembers.isActive, true),
-          eq(workspaceMembers.role, "mentor"),
-        ),
-      )
-      .limit(1);
-    return rows.length > 0;
-  },
-);
+export const isMentor = cache(async (userId: string): Promise<boolean> => {
+  const rows = await db
+    .select({ role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.userId, userId),
+        eq(workspaceMembers.isActive, true),
+        eq(workspaceMembers.role, "mentor"),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+});
 
 /** Workspace admin, or lead of this specific team. */
 export const isTeamLead = cache(
@@ -226,6 +225,28 @@ export const isTeamMember = cache(
   },
 );
 
+/**
+ * Who may decide an appeal, and therefore who may open an issue directly or mark
+ * one completed: the lead of the project's team, or a workspace admin role.
+ *
+ * isTeamLead already folds the three admin roles in, which is the fallback the
+ * user asked for — a team with no lead must not be a team where nothing can be
+ * approved.
+ */
+export const canDecideAppeal = cache(
+  async (userId: string, projectId: string): Promise<boolean> => {
+    const rows = await db
+      .select({ teamId: projects.teamId })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    if (rows.length === 0) {
+      return false;
+    }
+    return isTeamLead(userId, rows[0].teamId);
+  },
+);
+
 /** Workspace admin, the project's team lead, or a project admin. */
 export async function canManageProject(
   userId: string,
@@ -295,6 +316,17 @@ export type Ability =
   | { kind: "project.manage"; projectId: string }
   /** Creating or editing issues inside a project. */
   | { kind: "issue.write"; projectId: string }
+  /**
+   * Opening an issue without anyone's approval. Held by the workspace admin
+   * roles only: leads, members and mentors raise a create appeal instead.
+   */
+  | { kind: "issue.create"; projectId: string }
+  /** Marking an issue completed, which is the lead's inspection. */
+  | { kind: "issue.complete"; projectId: string }
+  /** Raising an appeal — anyone who may work on the project. */
+  | { kind: "appeal.create"; projectId: string }
+  /** Approving or rejecting one. */
+  | { kind: "appeal.decide"; projectId: string }
   /** Hard-deleting issues inside a project. */
   | { kind: "issue.delete"; projectId: string }
   /** Creating or editing a cycle. */
@@ -361,7 +393,16 @@ export async function assertCan(
       break;
     case "project.read":
     case "issue.write":
+    case "appeal.create":
       allowed = scope !== null && (await isProjectMember(user.id, scope));
+      break;
+    case "issue.create":
+      // Deliberately the narrowest ability in the file. Everyone else appeals.
+      allowed = await isWorkspaceAdmin(user.id);
+      break;
+    case "issue.complete":
+    case "appeal.decide":
+      allowed = scope !== null && (await canDecideAppeal(user.id, scope));
       break;
     case "project.manage":
     case "issue.delete":
