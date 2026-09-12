@@ -18,14 +18,17 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
 
   /**
-   * jsdom reads real files off disk at require time — default-stylesheet.css
-   * among them — resolved relative to its own __dirname. Bundling it into a
-   * route chunk rewrites that path to something like /ROOT/node_modules/...
-   * which does not exist, and the route dies with ENOENT the first time it
-   * renders. isomorphic-dompurify pulls jsdom in on the server, so both are
-   * kept external and loaded by Node from node_modules as normal.
+   * Nothing needs to be external any more, and that is the point.
+   *
+   * This used to list isomorphic-dompurify and jsdom, because jsdom reads real
+   * files off disk at require time and bundling it rewrote those paths into
+   * ones that do not exist. Keeping it external then exposed the other half of
+   * the problem: jsdom's CommonJS entry require()s ESM dependencies, which
+   * Vercel's module loader refuses outright, so the server sanitiser threw at
+   * module scope and took every action importing it down with it. The server
+   * sanitiser now parses with htmlparser2 and needs no DOM at all — see
+   * src/lib/utils/sanitize-html-server.ts — so jsdom is gone from the tree.
    */
-  serverExternalPackages: ["isomorphic-dompurify", "jsdom"],
 
   experimental: {
     /**

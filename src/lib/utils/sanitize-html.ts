@@ -8,8 +8,8 @@
  * member who later opens the issue. TipTap's schema constrains what its own
  * editor produces; it constrains nothing about what a crafted request sends.
  *
- * The engine is DOMPurify, which parses the input with a real HTML parser and
- * walks the resulting tree. The hand-rolled version this replaces rebuilt
+ * The engine is sanitize-html on the server and DOMPurify in the browser. Both
+ * parse the input with a real HTML parser and walk the resulting tree. The hand-rolled version this replaces rebuilt
  * every tag from a regular expression over the raw string — defensible as a
  * stop-gap while a dependency was waiting on sign-off, but a parser written in
  * regular expressions is the wrong tool for a security boundary: mutation XSS
@@ -26,9 +26,10 @@
  *
  * ---
  * This file re-exports from the core (shared logic) and server (DOMPurify via
- * isomorphic-dompurify) modules.  Client Components must NOT import from this
- * file — use ./sanitize-html-client.ts instead, which uses dompurify directly
- * and avoids the jsdom dependency that breaks Turbopack's client bundle.
+ * sanitize-html) modules.  Client Components must NOT import from this file —
+ * use ./sanitize-html-client.ts instead. Nothing here reaches for a DOM any
+ * more, but the split is still what keeps the server parser out of the browser
+ * bundle.
  */
 
 export { isEmptyRichText, isSafeUrl } from "./sanitize-html-core.ts";
