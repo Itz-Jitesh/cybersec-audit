@@ -74,7 +74,7 @@ export default async function AnalyticsPage({
     <div className="mx-auto w-full max-w-4xl px-6 py-8">
       <h1 className="text-sm font-medium text-text-100">Analytics</h1>
       <p className="mt-0.5 text-xs text-text-400">
-        Live counts over this project&rsquo;s unarchived issues.
+        Live counts over every issue in this project.
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
