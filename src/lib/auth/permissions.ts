@@ -327,7 +327,11 @@ export type Ability =
   | { kind: "appeal.create"; projectId: string }
   /** Approving or rejecting one. */
   | { kind: "appeal.decide"; projectId: string }
-  /** Hard-deleting issues inside a project. */
+  /**
+   * Deleting an issue for good. Held to the workspace admin roles: there is no
+   * archive to fall back on any more, so this is the only irreversible act on
+   * an issue and a team lead does not hold it.
+   */
   | { kind: "issue.delete"; projectId: string }
   /** Creating or editing a cycle. */
   | { kind: "cycle.manage"; projectId: string }
@@ -423,8 +427,10 @@ export async function assertCan(
     case "appeal.decide":
       allowed = scope !== null && (await canDecideAppeal(user.id, scope));
       break;
-    case "project.manage":
     case "issue.delete":
+      allowed = await isWorkspaceAdmin(user.id);
+      break;
+    case "project.manage":
     case "cycle.manage":
     case "module.manage":
       allowed = scope !== null && (await canManageProject(user.id, scope));

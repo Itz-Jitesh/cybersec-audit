@@ -350,53 +350,13 @@ export async function updateIssueOrder(
   });
 }
 
-export async function archiveIssue(
-  input: unknown,
-): Promise<ActionResult<null>> {
-  return guarded("archiveIssue", async () => {
-    const parsed = issueIdSchema.safeParse(input);
-    if (!parsed.success) return invalid(parsed.error);
-
-    const guard = await guardIssue(parsed.data.issueId, "issue.write");
-    if (!guard.ok) return guard.result;
-
-    await db
-      .update(issues)
-      .set({ archivedAt: new Date() })
-      .where(eq(issues.id, parsed.data.issueId));
-
-    revalidateProject(guard.projectId);
-    return ok(null);
-  });
-}
-
-export async function unarchiveIssue(
-  input: unknown,
-): Promise<ActionResult<null>> {
-  return guarded("unarchiveIssue", async () => {
-    const parsed = issueIdSchema.safeParse(input);
-    if (!parsed.success) return invalid(parsed.error);
-
-    const guard = await guardIssue(parsed.data.issueId, "issue.write");
-    if (!guard.ok) return guard.result;
-
-    await db
-      .update(issues)
-      .set({ archivedAt: null })
-      .where(eq(issues.id, parsed.data.issueId));
-
-    revalidateProject(guard.projectId);
-    return ok(null);
-  });
-}
-
 export async function deleteIssue(input: unknown): Promise<ActionResult<null>> {
   return guarded("deleteIssue", async () => {
     const parsed = issueIdSchema.safeParse(input);
     if (!parsed.success) return invalid(parsed.error);
 
-    // Hard deletion is held to the higher bar; archiving is the reversible
-    // option available to any project member.
+    // Deletion is the only irreversible act left on an issue now that archiving
+    // is gone, and issue.delete is held to the workspace admin roles.
     const guard = await guardIssue(parsed.data.issueId, "issue.delete");
     if (!guard.ok) return guard.result;
 
@@ -791,8 +751,7 @@ export async function bulkUpdateIssues(
     await db.transaction(async (tx) => {
       if (
         parsed.data.stateId !== undefined ||
-        parsed.data.priority !== undefined ||
-        parsed.data.archive !== undefined
+        parsed.data.priority !== undefined
       ) {
         await tx
           .update(issues)
@@ -802,9 +761,6 @@ export async function bulkUpdateIssues(
             }),
             ...(parsed.data.priority !== undefined && {
               priority: parsed.data.priority,
-            }),
-            ...(parsed.data.archive !== undefined && {
-              archivedAt: parsed.data.archive ? new Date() : null,
             }),
           })
           .where(inArray(issues.id, ids));

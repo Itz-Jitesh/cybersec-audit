@@ -49,7 +49,8 @@ as $$
   join states s on s.id = i.state_id
   join projects p on p.id = i.project_id
   where ia.user_id = uid
-    and i.archived_at is null
+    -- Issue archiving is gone (0015). Project archiving is a separate feature
+    -- and still hides an entire project's work from this list.
     and p.is_archived = false
     and (
       exists (

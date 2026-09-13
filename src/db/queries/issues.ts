@@ -7,7 +7,6 @@ import {
   eq,
   gte,
   inArray,
-  isNull,
   lte,
   or,
   type SQL,
@@ -73,7 +72,6 @@ export interface IssueListItem {
   targetDate: string | null;
   estimatePoint: number | null;
   sortOrder: number;
-  archivedAt: Date | null;
   createdAt: Date;
   subIssueCount: number;
   completedSubIssueCount: number;
@@ -123,10 +121,6 @@ export async function getIssuesForProject(
 ): Promise<IssueListItem[]> {
   const conditions: SQL[] = [eq(issues.projectId, filters.projectId)];
 
-  if (!filters.includeArchived) {
-    conditions.push(isNull(issues.archivedAt));
-  }
-
   if (filters.stateIds?.length) {
     conditions.push(inArray(issues.stateId, filters.stateIds));
   }
@@ -163,7 +157,12 @@ export async function getIssuesForProject(
         db
           .select({ id: states.id })
           .from(states)
-          .where(inArray(states.group, filters.stateGroups as (typeof states.group.enumValues)[number][])),
+          .where(
+            inArray(
+              states.group,
+              filters.stateGroups as (typeof states.group.enumValues)[number][],
+            ),
+          ),
       ),
     );
   }
@@ -237,16 +236,15 @@ export async function getIssuesForProject(
       targetDate: issues.targetDate,
       estimatePoint: issues.estimatePoint,
       sortOrder: issues.sortOrder,
-      archivedAt: issues.archivedAt,
       createdAt: issues.createdAt,
       subIssueCount: sql<number>`coalesce((
         select count(*)::int from issues c
-        where c.parent_id = ${issues.id} and c.archived_at is null
+        where c.parent_id = ${issues.id}
       ), 0)`,
       completedSubIssueCount: sql<number>`coalesce((
         select count(*)::int from issues c
         join states cs on cs.id = c.state_id
-        where c.parent_id = ${issues.id} and c.archived_at is null
+        where c.parent_id = ${issues.id}
           and cs.group = 'completed'
       ), 0)`,
       assignees: sql<IssueAssignee[]>`coalesce((
@@ -326,7 +324,6 @@ export async function getIssueDetail(
       targetDate: issues.targetDate,
       estimatePoint: issues.estimatePoint,
       sortOrder: issues.sortOrder,
-      archivedAt: issues.archivedAt,
       createdAt: issues.createdAt,
       updatedAt: issues.updatedAt,
       completedAt: issues.completedAt,
@@ -334,12 +331,12 @@ export async function getIssueDetail(
       createdByName: sql<string>`coalesce(${profiles.displayName}, 'Unknown member')`,
       subIssueCount: sql<number>`coalesce((
         select count(*)::int from issues c
-        where c.parent_id = ${issues.id} and c.archived_at is null
+        where c.parent_id = ${issues.id}
       ), 0)`,
       completedSubIssueCount: sql<number>`coalesce((
         select count(*)::int from issues c
         join states cs on cs.id = c.state_id
-        where c.parent_id = ${issues.id} and c.archived_at is null
+        where c.parent_id = ${issues.id}
           and cs.group = 'completed'
       ), 0)`,
       parentName: sql<string | null>`(
@@ -408,7 +405,7 @@ export async function getSubIssues(issueId: string) {
     .from(issues)
     .leftJoin(states, eq(states.id, issues.stateId))
     .leftJoin(projects, eq(projects.id, issues.projectId))
-    .where(and(eq(issues.parentId, issueId), isNull(issues.archivedAt)))
+    .where(eq(issues.parentId, issueId))
     .orderBy(asc(issues.sortOrder))
     .limit(100);
 }
@@ -495,7 +492,9 @@ export async function getIssueComments(issueId: string): Promise<CommentRow[]> {
       contentHtml: comments.contentHtml,
       isEdited: comments.isEdited,
       createdAt: comments.createdAt,
-      reactions: sql<{ emoji: string; userIds: string[]; names: string[] }[]>`coalesce((
+      reactions: sql<
+        { emoji: string; userIds: string[]; names: string[] }[]
+      >`coalesce((
         select json_agg(r) from (
           select cr.emoji as emoji,
                  json_agg(cr.user_id) as "userIds",
@@ -555,10 +554,7 @@ export async function searchIssuesInProject(
   term: string,
   excludeId?: string,
 ) {
-  const conditions: SQL[] = [
-    eq(issues.projectId, projectId),
-    isNull(issues.archivedAt),
-  ];
+  const conditions: SQL[] = [eq(issues.projectId, projectId)];
 
   if (term.trim().length > 0) {
     conditions.push(

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { cycles, cycleSnapshots, issues, states } from "@/db/schema";
@@ -48,10 +48,7 @@ export async function getProjectCycles(projectId: string): Promise<{
       started: sql<number>`count(*) filter (where ${states.group} = 'started')`,
     })
     .from(cycles)
-    .leftJoin(
-      issues,
-      and(eq(issues.cycleId, cycles.id), isNull(issues.archivedAt)),
-    )
+    .leftJoin(issues, eq(issues.cycleId, cycles.id))
     .leftJoin(states, eq(states.id, issues.stateId))
     .where(eq(cycles.projectId, projectId))
     .groupBy(
@@ -78,7 +75,6 @@ export async function getProjectCycles(projectId: string): Promise<{
     completed: shaped.filter((row) => row.status === "completed"),
   };
 }
-
 
 export interface CycleDetail {
   id: string;
@@ -108,10 +104,7 @@ export async function getCycle(cycleId: string): Promise<CycleDetail | null> {
       started: sql<number>`count(*) filter (where ${states.group} = 'started')`,
     })
     .from(cycles)
-    .leftJoin(
-      issues,
-      and(eq(issues.cycleId, cycleId), isNull(issues.archivedAt)),
-    )
+    .leftJoin(issues, eq(issues.cycleId, cycleId))
     .leftJoin(states, eq(states.id, issues.stateId))
     .where(eq(cycles.id, cycleId))
     .groupBy(
@@ -171,7 +164,6 @@ export async function getIncompleteCycleIssues(
     .where(
       and(
         eq(issues.cycleId, cycleId),
-        isNull(issues.archivedAt),
         sql`${states.group} not in ('completed', 'cancelled')`,
       ),
     )
@@ -198,11 +190,15 @@ export async function getTransferTargets(
     .limit(50);
 }
 
-
 /** Snapshot counts for one cycle, for the daily cron. */
 export async function snapshotCycleCounts(
   cycleId: string,
-): Promise<{ total: number; completed: number; started: number; pending: number }> {
+): Promise<{
+  total: number;
+  completed: number;
+  started: number;
+  pending: number;
+}> {
   const [row] = await db
     .select({
       total: count(),
@@ -212,7 +208,7 @@ export async function snapshotCycleCounts(
     })
     .from(issues)
     .innerJoin(states, eq(states.id, issues.stateId))
-    .where(and(eq(issues.cycleId, cycleId), isNull(issues.archivedAt)));
+    .where(eq(issues.cycleId, cycleId));
 
   return {
     total: Number(row?.total ?? 0),
@@ -251,4 +247,3 @@ export async function getProjectsWithCycles(): Promise<string[]> {
     .limit(500);
   return rows.map((row) => row.projectId);
 }
-

@@ -128,8 +128,7 @@ export function IssueActivityFeed({ entries }: { entries: ActivityRow[] }) {
           previous !== undefined &&
           prevCreatedAt !== null &&
           previous.actorId === entry.actorId &&
-          createdAt.getTime() - prevCreatedAt.getTime() <
-            GROUP_WINDOW_MS;
+          createdAt.getTime() - prevCreatedAt.getTime() < GROUP_WINDOW_MS;
 
         return (
           <li key={entry.id} className="flex min-h-6 items-center gap-2">

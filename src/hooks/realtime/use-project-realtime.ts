@@ -20,7 +20,6 @@ type IssueRow = {
   target_date: string | null;
   estimate_point: number | null;
   sort_order: number;
-  archived_at: string | null;
   created_at: string;
 };
 
@@ -44,7 +43,11 @@ function resolveState(
   return {
     stateId: String(row.state_id),
     ...(state
-      ? { stateName: state.name, stateGroup: state.group, stateColor: state.color }
+      ? {
+          stateName: state.name,
+          stateGroup: state.group,
+          stateColor: state.color,
+        }
       : {}),
     cycleId: (row.cycle_id as string | null) ?? null,
     parentId: (row.parent_id as string | null) ?? null,
@@ -52,7 +55,6 @@ function resolveState(
     targetDate: (row.target_date as string | null) ?? null,
     estimatePoint: (row.estimate_point as number | null) ?? null,
     sortOrder: Number(row.sort_order),
-    archivedAt: row.archived_at ? new Date(String(row.archived_at)) : null,
   };
 }
 
@@ -160,7 +162,6 @@ export function useProjectRealtime({
                   targetDate: (row.target_date as string | null) ?? null,
                   estimatePoint: (row.estimate_point as number | null) ?? null,
                   sortOrder: Number(row.sort_order),
-                  archivedAt: null,
                   createdAt: new Date(String(row.created_at)),
                   subIssueCount: 0,
                   completedSubIssueCount: 0,

@@ -52,8 +52,6 @@ export const issues = pgTable(
       .notNull()
       .references(() => profiles.id),
     completedAt: timestamp({ withTimezone: true }),
-    /** Soft delete. Archived issues stay readable but leave every list. */
-    archivedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -67,12 +65,11 @@ export const issues = pgTable(
       "issues_estimate_point_check",
       sql`${table.estimatePoint} is null or (${table.estimatePoint} >= 0 and ${table.estimatePoint} <= 21)`,
     ),
-    index("issues_project_id_state_id_idx")
-      .on(table.projectId, table.stateId)
-      .where(sql`archived_at is null`),
-    index("issues_project_id_sort_order_idx")
-      .on(table.projectId, table.sortOrder)
-      .where(sql`archived_at is null`),
+    index("issues_project_id_state_id_idx").on(table.projectId, table.stateId),
+    index("issues_project_id_sort_order_idx").on(
+      table.projectId,
+      table.sortOrder,
+    ),
     index("issues_cycle_id_idx")
       .on(table.cycleId)
       .where(sql`cycle_id is not null`),
@@ -81,7 +78,7 @@ export const issues = pgTable(
       .where(sql`parent_id is not null`),
     index("issues_target_date_idx")
       .on(table.targetDate)
-      .where(sql`target_date is not null and archived_at is null`),
+      .where(sql`target_date is not null`),
   ],
 );
 

@@ -13,7 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
-  archiveIssue,
   bulkUpdateIssues,
   deleteIssue,
   setAssignees,
@@ -150,8 +149,9 @@ export function IssuesView({
   // Before rehydration there is no stored layout or filter set, so the list
   // renders — exactly what the server delivered.
   const layout: IssueLayout = hydrated ? (stored?.layout ?? "list") : "list";
-  const displayProps: DisplayProps =
-    hydrated ? (stored?.displayProps ?? DEFAULT_DISPLAY_PROPS) : DEFAULT_DISPLAY_PROPS;
+  const displayProps: DisplayProps = hydrated
+    ? (stored?.displayProps ?? DEFAULT_DISPLAY_PROPS)
+    : DEFAULT_DISPLAY_PROPS;
   const groupBy = displayProps.groupBy;
 
   const filters = useMemo(
@@ -195,8 +195,7 @@ export function IssuesView({
   useIssueShortcuts({
     onCreateIssue: () => setCreateOpen(true),
     onSwitchLayout: (next) => setStoredLayout(projectId, next),
-    onExpandSearch: () =>
-      document.getElementById("filter-search")?.focus(),
+    onExpandSearch: () => document.getElementById("filter-search")?.focus(),
     onExtendSelection: (direction) => {
       if (issues.length === 0) return;
       const order = issues.map((issue) => issue.id);
@@ -379,30 +378,6 @@ export function IssuesView({
         });
       },
 
-      onArchive: (issueId) => {
-        // Archiving removes the row from this view, so the optimistic patch is a
-        // removal rather than a field change and the list never refetches whole.
-        void (async () => {
-          await queryClient.cancelQueries({ queryKey });
-          const previous = queryClient.getQueryData<IssueListItem[]>(queryKey);
-
-          queryClient.setQueryData<IssueListItem[]>(queryKey, (current) =>
-            (current ?? []).filter((issue) => issue.id !== issueId),
-          );
-
-          const result = await archiveIssue({ issueId });
-
-          if (!result.ok) {
-            if (previous) queryClient.setQueryData(queryKey, previous);
-            toast.error(result.error);
-            return;
-          }
-
-          toast.success("Issue archived.");
-          void queryClient.invalidateQueries({ queryKey });
-        })();
-      },
-
       onDelete: (issueId) => {
         void (async () => {
           const result = await deleteIssue({ issueId });
@@ -421,8 +396,6 @@ export function IssuesView({
       labels,
       stateOf,
       mutate,
-      queryClient,
-      queryKey,
       refresh,
       projectId,
       router,
@@ -469,13 +442,10 @@ export function IssuesView({
     [projectId, router],
   );
 
-  const handleQuickAdd = useCallback(
-    (stateId: string) => {
-      setQuickAddState(stateId);
-      setCreateOpen(true);
-    },
-    [],
-  );
+  const handleQuickAdd = useCallback((stateId: string) => {
+    setQuickAddState(stateId);
+    setCreateOpen(true);
+  }, []);
 
   const handleSort = useCallback(
     (orderBy: IssueFilters["orderBy"]) => {
@@ -501,18 +471,12 @@ export function IssuesView({
     [projectId, setStoredDisplayProps],
   );
 
-  const handleCreateOpenChange = useCallback(
-    (next: boolean) => {
-      setCreateOpen(next);
-      if (!next) setQuickAddState(null);
-    },
-    [],
-  );
+  const handleCreateOpenChange = useCallback((next: boolean) => {
+    setCreateOpen(next);
+    if (!next) setQuickAddState(null);
+  }, []);
 
-  const handlePeekClose = useCallback(
-    () => setPeekId(null),
-    [],
-  );
+  const handlePeekClose = useCallback(() => setPeekId(null), []);
 
   const selectedIds = [...selected];
 
@@ -687,9 +651,39 @@ export function IssuesView({
         onAddLabel={(labelId) =>
           runBulk({ addLabelIds: [labelId] }, (issue) => issue, "Label added.")
         }
-        onArchive={() =>
-          runBulk({ archive: true }, (issue) => issue, "Issues archived.")
-        }
+        canDelete={canDelete}
+        onDelete={() => {
+          void (async () => {
+            const ids = [...selected];
+            const previous =
+              queryClient.getQueryData<IssueListItem[]>(queryKey);
+            // Deleting removes the rows from this view, so the optimistic patch
+            // is a removal rather than a field change.
+            queryClient.setQueryData<IssueListItem[]>(queryKey, (current) =>
+              (current ?? []).filter((issue) => !ids.includes(issue.id)),
+            );
+
+            const results = await Promise.all(
+              ids.map((issueId) => deleteIssue({ issueId })),
+            );
+            const failed = results.filter((result) => !result.ok);
+
+            if (failed.length > 0) {
+              if (previous) queryClient.setQueryData(queryKey, previous);
+              const [first] = failed;
+              toast.error(
+                first && !first.ok ? first.error : "That did not work.",
+              );
+              return;
+            }
+
+            setSelected(new Set());
+            toast.success(
+              ids.length === 1 ? "Issue deleted." : "Issues deleted.",
+            );
+            void queryClient.invalidateQueries({ queryKey });
+          })();
+        }}
         onCancel={() => setSelected(new Set())}
       />
 

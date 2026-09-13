@@ -75,7 +75,7 @@ export async function getHomeStats(userId: string): Promise<HomeStats> {
     .from(issues)
     .innerJoin(issueAssignees, eq(issueAssignees.issueId, issues.id))
     .innerJoin(states, eq(states.id, issues.stateId))
-    .where(and(eq(issueAssignees.userId, userId), isNull(issues.archivedAt)));
+    .where(eq(issueAssignees.userId, userId));
 
   return {
     assigned: Number(row?.assigned ?? 0),
@@ -106,7 +106,6 @@ export async function getMyOpenIssues(userId: string): Promise<HomeIssue[]> {
     .where(
       and(
         eq(issueAssignees.userId, userId),
-        isNull(issues.archivedAt),
         inArray(states.group, ["backlog", "unstarted", "started"]),
       ),
     )
@@ -139,10 +138,7 @@ export async function getActiveCycles(): Promise<ActiveCycle[]> {
     })
     .from(cycles)
     .innerJoin(projects, eq(projects.id, cycles.projectId))
-    .leftJoin(
-      issues,
-      and(eq(issues.cycleId, cycles.id), isNull(issues.archivedAt)),
-    )
+    .leftJoin(issues, eq(issues.cycleId, cycles.id))
     .leftJoin(states, eq(states.id, issues.stateId))
     .where(and(lte(cycles.startDate, today), gte(cycles.endDate, today)))
     .groupBy(

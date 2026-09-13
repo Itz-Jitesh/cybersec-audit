@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -127,10 +127,7 @@ export async function createCycle(
   });
 }
 
-
-export async function updateCycle(
-  input: unknown,
-): Promise<ActionResult<null>> {
+export async function updateCycle(input: unknown): Promise<ActionResult<null>> {
   return guarded("updateCycle", async () => {
     const parsed = updateCycleSchema.safeParse(input);
     if (!parsed.success) return invalid(parsed.error);
@@ -200,9 +197,7 @@ export async function updateCycle(
   });
 }
 
-export async function deleteCycle(
-  input: unknown,
-): Promise<ActionResult<null>> {
+export async function deleteCycle(input: unknown): Promise<ActionResult<null>> {
   return guarded("deleteCycle", async () => {
     const parsed = cycleIdSchema.safeParse(input);
     if (!parsed.success) return invalid(parsed.error);
@@ -263,7 +258,6 @@ export async function assignIssuesToCycle(
         and(
           inArray(issues.id, parsed.data.issueIds),
           eq(issues.projectId, projectId),
-          isNull(issues.archivedAt),
         ),
       )
       .limit(100);
@@ -329,7 +323,6 @@ export async function completeCycle(
           and(
             eq(issues.cycleId, parsed.data.cycleId),
             eq(issues.projectId, projectId),
-            isNull(issues.archivedAt),
             sql`${issues.stateId} in (select id from states where "group" not in ('completed', 'cancelled'))`,
           ),
         )
@@ -346,4 +339,3 @@ export async function completeCycle(
     return ok({ moved });
   });
 }
-
