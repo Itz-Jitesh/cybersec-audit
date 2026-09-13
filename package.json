@@ -15,7 +15,7 @@
     "db:seed": "node --env-file=.env.local src/db/seed.ts",
     "db:test:rls": "node --env-file=.env.local src/db/run-rls-tests.ts",
     "db:test:auth": "node --env-file=.env.local src/db/run-auth-tests.ts",
-    "db:test": "pnpm db:test:rls && pnpm db:test:auth && pnpm db:test:projects && pnpm db:test:views && pnpm db:test:modules && pnpm db:test:admin && pnpm db:test:my-issues && pnpm db:test:team-members && pnpm db:test:appeals",
+    "db:test": "pnpm db:test:rls && pnpm db:test:auth && pnpm db:test:projects && pnpm db:test:views && pnpm db:test:modules && pnpm db:test:admin && pnpm db:test:my-issues && pnpm db:test:team-members && pnpm db:test:appeals && pnpm db:test:reactions",
     "db:test:projects": "node --env-file=.env.local src/db/run-project-tests.ts",
     "test:sanitize": "node --experimental-strip-types src/lib/utils/sanitize-html.test.ts",
     "db:test:views": "node --env-file=.env.local src/db/run-view-tests.ts",
@@ -28,7 +28,8 @@
     "test:email": "node --experimental-strip-types src/lib/email/from.test.ts",
     "db:test:my-issues": "node --env-file=.env.local src/db/run-my-issue-tests.ts",
     "db:test:team-members": "node --env-file=.env.local src/db/run-team-member-tests.ts",
-    "db:test:appeals": "node --env-file=.env.local src/db/run-appeal-tests.ts"
+    "db:test:appeals": "node --env-file=.env.local src/db/run-appeal-tests.ts",
+    "db:test:reactions": "node --env-file=.env.local src/db/run-reaction-tests.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
