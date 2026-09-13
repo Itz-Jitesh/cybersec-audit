@@ -351,7 +351,8 @@ export async function assertCan(
   if (user === null) {
     return {
       ok: false,
-      error: "You must be signed in.",
+      error:
+        "Your session could not be read. Reload the page, and sign in again if that does not help.",
       code: "UNAUTHENTICATED",
     };
   }

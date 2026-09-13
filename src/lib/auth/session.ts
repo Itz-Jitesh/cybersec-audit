@@ -26,16 +26,33 @@ export interface CurrentUser {
  */
 export const getSession = cache(async () => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  const { data, error } = await supabase.auth.getUser();
+
+  // The error was being discarded, which is why every session failure looked
+  // identical from the outside. "Auth session missing" means no usable cookie
+  // reached this request; anything else — a refresh race, a network failure
+  // talking to Supabase — is worth telling apart from it.
+  if (error) {
+    console.error(`[auth] getUser failed: ${error.message}`);
+  }
+
+  return data.user;
 });
 
-/** The profile joined with the workspace membership, or null when not signed in. */
+/**
+ * The profile joined with the workspace membership, or null.
+ *
+ * Null means one of two quite different things and the caller cannot tell them
+ * apart, which is why both are logged here. Either Supabase did not recognise
+ * the request's cookies — an expired or absent session — or it did and this
+ * person has no profile row, or no workspace membership attached to it. The
+ * first is a sign-in problem; the second is a provisioning bug, and it presents
+ * to the user as being told they are not signed in while they plainly are.
+ */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const user = await getSession();
   if (!user) {
+    console.error("[auth] no Supabase session on this request");
     return null;
   }
 
@@ -53,7 +70,14 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     .where(eq(profiles.id, user.id))
     .limit(1);
 
-  return row ?? null;
+  if (!row) {
+    console.error(
+      `[auth] signed in as ${user.id} (${user.email ?? "no email"}) but no profile joined to an active membership`,
+    );
+    return null;
+  }
+
+  return row;
 });
 
 /**
