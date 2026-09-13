@@ -18,6 +18,7 @@ import type { MemberRow } from "@/db/queries/project";
 export function IssuePageClient({
   bundle,
   states,
+  cycles,
   members,
   labels,
   currentUserId,
@@ -25,6 +26,7 @@ export function IssuePageClient({
 }: {
   bundle: IssueDetailBundle;
   states: StateOption[];
+  cycles: { id: string; name: string }[];
   members: MemberRow[];
   labels: IssueLabelRef[];
   currentUserId: string;
@@ -36,6 +38,7 @@ export function IssuePageClient({
     <IssueDetail
       {...bundle}
       states={states}
+      cycles={cycles}
       members={members}
       labels={labels}
       currentUserId={currentUserId}

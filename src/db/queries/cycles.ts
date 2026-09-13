@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { cycles, cycleSnapshots, issues, states } from "@/db/schema";
+import { cycles, cycleSnapshots, issues, projects, states } from "@/db/schema";
 
 /** Nobody needs more than two hundred cycles in one project view. */
 const CYCLE_LIMIT = 200;
@@ -171,6 +171,41 @@ export async function getIncompleteCycleIssues(
     .limit(500);
 }
 
+/**
+ * Every issue in a cycle, complete or not, for the cycle page's issue panel.
+ *
+ * getIncompleteCycleIssues answers a different question — what still has to
+ * move when the cycle is completed — so it deliberately hides finished work.
+ * The panel has to show the whole cycle, or removing a completed issue from it
+ * would be impossible.
+ */
+export async function getCycleIssues(cycleId: string): Promise<
+  {
+    id: string;
+    name: string;
+    sequenceId: number;
+    identifier: string;
+    stateGroup: string;
+    stateColor: string;
+  }[]
+> {
+  return db
+    .select({
+      id: issues.id,
+      name: issues.name,
+      sequenceId: issues.sequenceId,
+      identifier: sql<string>`coalesce(${projects.identifier}, '')`,
+      stateGroup: sql<string>`coalesce(${states.group}, 'unstarted')`,
+      stateColor: sql<string>`coalesce(${states.color}, 'var(--text-300)')`,
+    })
+    .from(issues)
+    .leftJoin(states, eq(states.id, issues.stateId))
+    .leftJoin(projects, eq(projects.id, issues.projectId))
+    .where(eq(issues.cycleId, cycleId))
+    .orderBy(asc(issues.sequenceId))
+    .limit(500);
+}
+
 /** Other non-completed cycles in the project, as transfer destinations. */
 export async function getTransferTargets(
   projectId: string,
@@ -191,9 +226,7 @@ export async function getTransferTargets(
 }
 
 /** Snapshot counts for one cycle, for the daily cron. */
-export async function snapshotCycleCounts(
-  cycleId: string,
-): Promise<{
+export async function snapshotCycleCounts(cycleId: string): Promise<{
   total: number;
   completed: number;
   started: number;

@@ -9,6 +9,7 @@ import {
   getIssueDetail,
   getIssueLinks,
   getLabelOptions,
+  getProjectCycles,
   getSubIssues,
 } from "@/db/queries/issues";
 import { getProjectMembers, getProjectStates } from "@/db/queries/project";
@@ -52,6 +53,7 @@ export default async function IssuePage({ params }: IssuePageProps) {
     states,
     members,
     labels,
+    cycles,
     canManage,
   ] = await Promise.all([
     getSubIssues(issueId),
@@ -62,6 +64,7 @@ export default async function IssuePage({ params }: IssuePageProps) {
     getProjectStates(projectId),
     getProjectMembers(projectId),
     getLabelOptions(projectId),
+    getProjectCycles(projectId),
     assertCan(user, { kind: "project.manage", projectId }),
   ]);
 
@@ -77,6 +80,7 @@ export default async function IssuePage({ params }: IssuePageProps) {
         }))}
         members={members}
         labels={labels}
+        cycles={cycles.map((cycle) => ({ id: cycle.id, name: cycle.name }))}
         currentUserId={user.id}
         canModerate={canManage.ok}
       />

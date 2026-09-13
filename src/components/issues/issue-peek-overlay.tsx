@@ -27,6 +27,7 @@ interface IssuePeekOverlayProps {
   issueId: string;
   projectId: string;
   states: StateOption[];
+  cycles: { id: string; name: string }[];
   members: MemberRow[];
   labels: IssueLabelRef[];
   currentUserId: string;
@@ -43,6 +44,7 @@ export function IssuePeekOverlay({
   issueId,
   projectId,
   states,
+  cycles,
   members,
   labels,
   currentUserId,
@@ -137,6 +139,7 @@ export function IssuePeekOverlay({
               <IssueDetail
                 {...data}
                 states={states}
+                cycles={cycles}
                 members={members}
                 labels={labels}
                 currentUserId={currentUserId}

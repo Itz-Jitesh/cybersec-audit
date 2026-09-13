@@ -709,6 +709,7 @@ export function IssuesView({
           issueId={peekId}
           projectId={projectId}
           states={states}
+          cycles={cycles}
           members={members}
           labels={labels}
           currentUserId={currentUserId}
