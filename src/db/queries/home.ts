@@ -1,13 +1,25 @@
 import "server-only";
 
-import { and, count, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   cycles,
+  issueActivity,
   issueAssignees,
   issues,
   notifications,
+  profiles,
   projects,
   states,
 } from "@/db/schema";
@@ -43,6 +55,7 @@ export interface ActiveCycle {
 
 const ASSIGNED_LIMIT = 8;
 const CYCLE_LIMIT = 5;
+const ACTIVITY_LIMIT = 12;
 
 /**
  * Four counts for the stat row, computed as SQL aggregates in one round trip.
@@ -123,8 +136,30 @@ export async function getMyOpenIssues(userId: string): Promise<HomeIssue[]> {
 }
 
 /** Cycles running right now in the projects this user can see. */
-export async function getActiveCycles(): Promise<ActiveCycle[]> {
+/**
+ * Cycles running today, in projects this person can see.
+ *
+ * It used to take no arguments and return every running cycle in the workspace,
+ * so the home page told a member the names of cycles and projects belonging to
+ * teams they are not on. The scope is the same union the rest of the app uses:
+ * admins and mentors read everything, everyone else reads their own teams and
+ * any project they are a direct member of.
+ */
+export async function getActiveCycles(
+  userId: string,
+  readsWholeWorkspace: boolean,
+): Promise<ActiveCycle[]> {
   const today = new Date().toISOString().slice(0, 10);
+
+  const visible = readsWholeWorkspace
+    ? null
+    : sql`exists (
+        select 1 from team_members tm
+         where tm.team_id = ${projects.teamId} and tm.user_id = ${userId}
+      ) or exists (
+        select 1 from project_members pm
+         where pm.project_id = ${projects.id} and pm.user_id = ${userId}
+      )`;
 
   const rows = await db
     .select({
@@ -140,7 +175,13 @@ export async function getActiveCycles(): Promise<ActiveCycle[]> {
     .innerJoin(projects, eq(projects.id, cycles.projectId))
     .leftJoin(issues, eq(issues.cycleId, cycles.id))
     .leftJoin(states, eq(states.id, issues.stateId))
-    .where(and(lte(cycles.startDate, today), gte(cycles.endDate, today)))
+    .where(
+      and(
+        lte(cycles.startDate, today),
+        gte(cycles.endDate, today),
+        ...(visible ? [visible] : []),
+      ),
+    )
     .groupBy(
       cycles.id,
       cycles.name,
@@ -156,6 +197,71 @@ export async function getActiveCycles(): Promise<ActiveCycle[]> {
     total: Number(row.total),
     completed: Number(row.completed),
   }));
+}
+
+export interface ActivityFeedRow {
+  id: string;
+  field: string;
+  oldDisplay: string | null;
+  newDisplay: string | null;
+  createdAt: Date;
+  actorId: string;
+  actorName: string;
+  actorAvatarUrl: string | null;
+  issueId: string;
+  issueName: string;
+  sequenceId: number;
+  identifier: string;
+  projectId: string;
+}
+
+/**
+ * The workspace's recent activity, scoped to the projects this person can see.
+ *
+ * The home page carried a placeholder saying this would arrive in phase 8. The
+ * lifecycle that writes issue_activity did arrive; the feed reading it never
+ * got built. Worth knowing when reading old rows: until withActor() started
+ * setting the JWT claim on the server path, auth.uid() was null for every
+ * server action and 0007 made the activity triggers skip, so the table holds
+ * nothing from before that fix.
+ */
+export async function getRecentActivity(
+  userId: string,
+  readsWholeWorkspace: boolean,
+): Promise<ActivityFeedRow[]> {
+  const visible = readsWholeWorkspace
+    ? null
+    : sql`exists (
+        select 1 from team_members tm
+         where tm.team_id = ${projects.teamId} and tm.user_id = ${userId}
+      ) or exists (
+        select 1 from project_members pm
+         where pm.project_id = ${projects.id} and pm.user_id = ${userId}
+      )`;
+
+  return db
+    .select({
+      id: issueActivity.id,
+      field: issueActivity.field,
+      oldDisplay: issueActivity.oldDisplay,
+      newDisplay: issueActivity.newDisplay,
+      createdAt: issueActivity.createdAt,
+      actorId: issueActivity.actorId,
+      actorName: sql<string>`coalesce(${profiles.displayName}, 'System')`,
+      actorAvatarUrl: profiles.avatarUrl,
+      issueId: issues.id,
+      issueName: issues.name,
+      sequenceId: issues.sequenceId,
+      identifier: projects.identifier,
+      projectId: projects.id,
+    })
+    .from(issueActivity)
+    .innerJoin(issues, eq(issues.id, issueActivity.issueId))
+    .innerJoin(projects, eq(projects.id, issues.projectId))
+    .leftJoin(profiles, eq(profiles.id, issueActivity.actorId))
+    .where(visible ? visible : sql`true`)
+    .orderBy(desc(issueActivity.createdAt))
+    .limit(ACTIVITY_LIMIT);
 }
 
 /** Unread notification count for the header bell and the sidebar badge. */

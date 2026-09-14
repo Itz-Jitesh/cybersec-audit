@@ -2,6 +2,7 @@ import { format, formatDistanceToNowStrict } from "date-fns";
 import { CircleDot } from "lucide-react";
 import Link from "next/link";
 
+import { RecentActivity } from "@/components/home/recent-activity";
 import { DateChip } from "@/components/shared/date-chip";
 import { EmptyState } from "@/components/shared/empty-state";
 import { IssueIdBadge } from "@/components/shared/issue-id-badge";
@@ -16,7 +17,9 @@ import {
   getActiveCycles,
   getHomeStats,
   getMyOpenIssues,
+  getRecentActivity,
 } from "@/db/queries/home";
+import { readsWholeWorkspace } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
 
 function greeting(date: Date): string {
@@ -72,10 +75,15 @@ export default async function HomePage() {
   const user = await requireUser();
   const now = new Date();
 
-  const [stats, myIssues, activeCycles] = await Promise.all([
+  // Admins and mentors read the whole workspace; everyone else sees their own
+  // teams, which is the same boundary the sidebar and search already apply.
+  const seesEverything = readsWholeWorkspace(user.role);
+
+  const [stats, myIssues, activeCycles, activity] = await Promise.all([
     getHomeStats(user.id),
     getMyOpenIssues(user.id),
-    getActiveCycles(),
+    getActiveCycles(user.id, seesEverything),
+    getRecentActivity(user.id, seesEverything),
   ]);
 
   const firstName = user.displayName.split(" ")[0];
@@ -179,10 +187,7 @@ export default async function HomePage() {
           </Panel>
 
           <Panel title="Recent activity">
-            <p className="px-4 py-4 text-xs text-text-300">
-              Activity appears here once issues start moving. The feed is built
-              in phase 8, alongside the issue lifecycle that writes it.
-            </p>
+            <RecentActivity entries={activity} />
           </Panel>
         </div>
       </div>
