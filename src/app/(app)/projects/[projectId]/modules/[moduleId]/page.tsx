@@ -35,7 +35,6 @@ export default async function ModuleDetailPage({
       moduleIds: [moduleId],
       limit: 200,
       offset: 0,
-      includeArchived: false,
       groupBy: "state",
       orderBy: "sort_order",
       sortDirection: "asc",

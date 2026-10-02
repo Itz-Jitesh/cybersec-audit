@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { issueAssignees, issues, profiles, states } from "@/db/schema";
@@ -89,12 +89,15 @@ export async function getStateDistribution(
       count: sql<number>`count(${issues.id})`,
     })
     .from(states)
-    .leftJoin(
-      issues,
-      and(eq(issues.stateId, states.id), isNull(issues.archivedAt)),
-    )
+    .leftJoin(issues, eq(issues.stateId, states.id))
     .where(eq(states.projectId, projectId))
-    .groupBy(states.id, states.name, states.group, states.color, states.sequence)
+    .groupBy(
+      states.id,
+      states.name,
+      states.group,
+      states.color,
+      states.sequence,
+    )
     .orderBy(states.sequence)
     .limit(50);
 
@@ -121,10 +124,7 @@ export async function getAssigneeLoad(
       completed: sql<number>`count(*) filter (where ${states.group} = 'completed')`,
     })
     .from(issueAssignees)
-    .innerJoin(
-      issues,
-      and(eq(issues.id, issueAssignees.issueId), isNull(issues.archivedAt)),
-    )
+    .innerJoin(issues, eq(issues.id, issueAssignees.issueId))
     .innerJoin(states, eq(states.id, issues.stateId))
     .leftJoin(profiles, eq(profiles.id, issueAssignees.userId))
     .where(eq(issues.projectId, projectId))
@@ -170,7 +170,7 @@ export async function getProjectTotals(
     })
     .from(issues)
     .innerJoin(states, eq(states.id, issues.stateId))
-    .where(and(eq(issues.projectId, projectId), isNull(issues.archivedAt)));
+    .where(eq(issues.projectId, projectId));
 
   return {
     total: Number(row?.total ?? 0),

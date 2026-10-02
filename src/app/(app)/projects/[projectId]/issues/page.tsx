@@ -57,7 +57,6 @@ export default async function IssuesPage({ params }: IssuesPageProps) {
   ] = await Promise.all([
     getIssuesForProject({
       projectId,
-      includeArchived: false,
       limit: 200,
       offset: 0,
       groupBy: "state",

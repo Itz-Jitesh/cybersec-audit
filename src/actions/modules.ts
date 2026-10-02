@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -180,7 +180,6 @@ export async function addIssuesToModule(
         and(
           inArray(issues.id, parsed.data.issueIds),
           eq(issues.projectId, projectId),
-          isNull(issues.archivedAt),
         ),
       )
       .limit(100);
@@ -191,7 +190,12 @@ export async function addIssuesToModule(
 
     await db
       .insert(moduleIssues)
-      .values(rows.map((row) => ({ moduleId: parsed.data.moduleId, issueId: row.id })))
+      .values(
+        rows.map((row) => ({
+          moduleId: parsed.data.moduleId,
+          issueId: row.id,
+        })),
+      )
       .onConflictDoNothing();
 
     revalidateModuleViews(projectId, parsed.data.moduleId);
@@ -247,10 +251,7 @@ export async function getModuleStateDistribution(
     const rows = await db
       .select({ group: states.group, count: sql<number>`count(*)` })
       .from(moduleIssues)
-      .innerJoin(
-        issues,
-        and(eq(issues.id, moduleIssues.issueId), isNull(issues.archivedAt)),
-      )
+      .innerJoin(issues, eq(issues.id, moduleIssues.issueId))
       .innerJoin(states, eq(states.id, issues.stateId))
       .where(eq(moduleIssues.moduleId, parsed.data.moduleId))
       .groupBy(states.group)
@@ -259,7 +260,6 @@ export async function getModuleStateDistribution(
     return ok(rows.map((row) => ({ ...row, count: Number(row.count) })));
   });
 }
-
 
 /**
  * Candidate issues for the "add issues" picker on a module.
@@ -270,9 +270,7 @@ export async function getModuleStateDistribution(
  */
 export async function searchModuleCandidateIssues(
   input: unknown,
-): Promise<
-  ActionResult<Awaited<ReturnType<typeof searchIssuesInProject>>>
-> {
+): Promise<ActionResult<Awaited<ReturnType<typeof searchIssuesInProject>>>> {
   return guarded("searchModuleCandidateIssues", async () => {
     const parsed = moduleIssueSearchSchema.safeParse(input);
     if (!parsed.success) return invalid(parsed.error);

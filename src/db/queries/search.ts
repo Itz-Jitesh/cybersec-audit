@@ -1,26 +1,9 @@
 import "server-only";
 
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  isNotNull,
-  isNull,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import {
-  cycles,
-  issues,
-  modules,
-  pages,
-  projects,
-  states,
-} from "@/db/schema";
+import { cycles, issues, modules, pages, projects, states } from "@/db/schema";
 import { teamMembers } from "@/db/schema/teams";
 
 /**
@@ -106,12 +89,8 @@ export async function searchPalette(
   }
   const pattern = `%${terms.replace(/[%_]/g, "\\$&")}%`;
 
-  const issueVisibility = scope
-    ? inArray(issues.projectId, scope)
-    : undefined;
-  const cycleVisibility = scope
-    ? inArray(cycles.projectId, scope)
-    : undefined;
+  const issueVisibility = scope ? inArray(issues.projectId, scope) : undefined;
+  const cycleVisibility = scope ? inArray(cycles.projectId, scope) : undefined;
   const moduleVisibility = scope
     ? inArray(modules.projectId, scope)
     : undefined;
@@ -136,7 +115,6 @@ export async function searchPalette(
       .innerJoin(states, eq(states.id, issues.stateId))
       .where(
         and(
-          isNull(issues.archivedAt),
           issueVisibility,
           or(
             // search_vector is a generated column created in
@@ -148,7 +126,9 @@ export async function searchPalette(
         ),
       )
       .orderBy(
-        desc(sql`ts_rank(issues.search_vector, websearch_to_tsquery('english', ${terms}))`),
+        desc(
+          sql`ts_rank(issues.search_vector, websearch_to_tsquery('english', ${terms}))`,
+        ),
         desc(issues.sequenceId),
       )
       .limit(PER_ENTITY_LIMIT),
@@ -205,4 +185,3 @@ export async function searchPalette(
     pages: pageRows,
   };
 }
-

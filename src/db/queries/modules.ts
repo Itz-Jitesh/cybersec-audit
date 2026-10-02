@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
+import { asc, count, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { issues, moduleIssues, modules, profiles, states } from "@/db/schema";
@@ -50,10 +50,7 @@ export async function getProjectModules(
     .from(modules)
     .leftJoin(profiles, eq(profiles.id, modules.leadId))
     .leftJoin(moduleIssues, eq(moduleIssues.moduleId, modules.id))
-    .leftJoin(
-      issues,
-      and(eq(issues.id, moduleIssues.issueId), isNull(issues.archivedAt)),
-    )
+    .leftJoin(issues, eq(issues.id, moduleIssues.issueId))
     .leftJoin(states, eq(states.id, issues.stateId))
     .where(eq(modules.projectId, projectId))
     .groupBy(
@@ -81,7 +78,9 @@ export interface ModuleDetail extends ModuleRow {
   projectId: string;
 }
 
-export async function getModule(moduleId: string): Promise<ModuleDetail | null> {
+export async function getModule(
+  moduleId: string,
+): Promise<ModuleDetail | null> {
   const [row] = await db
     .select({
       id: modules.id,
@@ -100,10 +99,7 @@ export async function getModule(moduleId: string): Promise<ModuleDetail | null> 
     .from(modules)
     .leftJoin(profiles, eq(profiles.id, modules.leadId))
     .leftJoin(moduleIssues, eq(moduleIssues.moduleId, modules.id))
-    .leftJoin(
-      issues,
-      and(eq(issues.id, moduleIssues.issueId), isNull(issues.archivedAt)),
-    )
+    .leftJoin(issues, eq(issues.id, moduleIssues.issueId))
     .leftJoin(states, eq(states.id, issues.stateId))
     .where(eq(modules.id, moduleId))
     .groupBy(
@@ -138,10 +134,7 @@ export async function getModuleProgress(
       completed: sql<number>`count(*) filter (where ${states.group} = 'completed')`,
     })
     .from(moduleIssues)
-    .innerJoin(
-      issues,
-      and(eq(issues.id, moduleIssues.issueId), isNull(issues.archivedAt)),
-    )
+    .innerJoin(issues, eq(issues.id, moduleIssues.issueId))
     .innerJoin(states, eq(states.id, issues.stateId))
     .where(eq(moduleIssues.moduleId, moduleId));
 

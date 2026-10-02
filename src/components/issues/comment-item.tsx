@@ -30,7 +30,11 @@ import { sanitizeRichText } from "@/lib/utils/sanitize-html-client";
 
 const REACTIONS = ["👍", "🎉", "🚀", "👀", "😄", "😕", "❤️"] as const;
 
-function reactionLabel(names: string[], currentUserId: string, userIds: string[]): string {
+function reactionLabel(
+  names: string[],
+  currentUserId: string,
+  userIds: string[],
+): string {
   const mine = userIds.includes(currentUserId);
   const others = names.filter((_, i) => userIds[i] !== currentUserId);
 
@@ -92,7 +96,9 @@ export function CommentItem({
             {comment.authorName}
           </span>
           <span className="text-xs text-text-400">
-            {formatDistanceToNowStrict(new Date(comment.createdAt), { addSuffix: true })}
+            {formatDistanceToNowStrict(new Date(comment.createdAt), {
+              addSuffix: true,
+            })}
             {comment.isEdited && " · edited"}
           </span>
 
@@ -161,9 +167,15 @@ export function CommentItem({
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
-                    {reactionLabel(reaction.names, currentUserId, reaction.userIds)}
+                    {reactionLabel(
+                      reaction.names,
+                      currentUserId,
+                      reaction.userIds,
+                    )}
                     {mine && (
-                      <span className="ml-1 text-text-400">· click to remove</span>
+                      <span className="ml-1 text-text-400">
+                        · click to remove
+                      </span>
                     )}
                   </TooltipContent>
                 </Tooltip>
@@ -180,7 +192,11 @@ export function CommentItem({
                   <SmilePlus size={14} strokeWidth={1.5} />
                 </button>
               </PopoverTrigger>
-              <PopoverContent side="bottom" align="start" className="flex w-auto gap-1 p-1.5">
+              <PopoverContent
+                side="bottom"
+                align="start"
+                className="flex w-auto gap-1 p-1.5"
+              >
                 {REACTIONS.map((emoji) => (
                   <button
                     key={emoji}

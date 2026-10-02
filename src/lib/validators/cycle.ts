@@ -40,6 +40,11 @@ export const updateCycleSchema = z
 
 export const cycleIdSchema = z.object({ cycleId: z.string().uuid() });
 
+export const cycleIssueSearchSchema = z.object({
+  cycleId: z.string().uuid(),
+  query: z.string().trim().max(120).default(""),
+});
+
 export const assignCycleSchema = z.object({
   issueIds: z.array(z.string().uuid()).min(1).max(100),
   cycleId: z.string().uuid().nullable(),

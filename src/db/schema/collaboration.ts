@@ -60,10 +60,14 @@ export const commentReactions = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    unique("comment_reactions_comment_id_user_id_emoji_key").on(
+    /**
+     * One reaction per person per comment, not one per emoji. The emoji is
+     * deliberately outside the key: choosing a second one replaces the first
+     * rather than stacking, which is the rule 0014 enforces.
+     */
+    unique("comment_reactions_comment_id_user_id_key").on(
       table.commentId,
       table.userId,
-      table.emoji,
     ),
   ],
 );

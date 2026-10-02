@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 
 import {
   AssigneeDropdown,
@@ -28,7 +28,8 @@ export function BulkActionBar({
   onSetPriority,
   onAssign,
   onAddLabel,
-  onArchive,
+  canDelete,
+  onDelete,
   onCancel,
 }: {
   count: number;
@@ -39,7 +40,8 @@ export function BulkActionBar({
   onSetPriority: (priority: IssuePriority) => void;
   onAssign: (userId: string) => void;
   onAddLabel: (labelId: string) => void;
-  onArchive: () => void;
+  canDelete: boolean;
+  onDelete: () => void;
   onCancel: () => void;
 }) {
   if (count === 0) return null;
@@ -80,10 +82,22 @@ export function BulkActionBar({
         </Button>
       </LabelDropdown>
 
-      <Button size="sm" variant="ghost" onClick={onArchive} className="gap-1.5">
-        <Archive size={14} strokeWidth={1.5} />
-        Archive
-      </Button>
+      {/*
+        Deletion is the only irreversible act on an issue now that archiving is
+        gone, so the bar offers it only to the roles that hold issue.delete —
+        the workspace admins. deleteIssue re-checks regardless.
+      */}
+      {canDelete && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onDelete}
+          className="gap-1.5 text-danger hover:text-danger"
+        >
+          <Trash2 size={14} strokeWidth={1.5} />
+          Delete
+        </Button>
+      )}
 
       <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
 

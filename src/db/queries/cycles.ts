@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { cycles, cycleSnapshots, issues, states } from "@/db/schema";
+import { cycles, cycleSnapshots, issues, projects, states } from "@/db/schema";
 
 /** Nobody needs more than two hundred cycles in one project view. */
 const CYCLE_LIMIT = 200;
@@ -48,10 +48,7 @@ export async function getProjectCycles(projectId: string): Promise<{
       started: sql<number>`count(*) filter (where ${states.group} = 'started')`,
     })
     .from(cycles)
-    .leftJoin(
-      issues,
-      and(eq(issues.cycleId, cycles.id), isNull(issues.archivedAt)),
-    )
+    .leftJoin(issues, eq(issues.cycleId, cycles.id))
     .leftJoin(states, eq(states.id, issues.stateId))
     .where(eq(cycles.projectId, projectId))
     .groupBy(
@@ -78,7 +75,6 @@ export async function getProjectCycles(projectId: string): Promise<{
     completed: shaped.filter((row) => row.status === "completed"),
   };
 }
-
 
 export interface CycleDetail {
   id: string;
@@ -108,10 +104,7 @@ export async function getCycle(cycleId: string): Promise<CycleDetail | null> {
       started: sql<number>`count(*) filter (where ${states.group} = 'started')`,
     })
     .from(cycles)
-    .leftJoin(
-      issues,
-      and(eq(issues.cycleId, cycleId), isNull(issues.archivedAt)),
-    )
+    .leftJoin(issues, eq(issues.cycleId, cycleId))
     .leftJoin(states, eq(states.id, issues.stateId))
     .where(eq(cycles.id, cycleId))
     .groupBy(
@@ -171,10 +164,44 @@ export async function getIncompleteCycleIssues(
     .where(
       and(
         eq(issues.cycleId, cycleId),
-        isNull(issues.archivedAt),
         sql`${states.group} not in ('completed', 'cancelled')`,
       ),
     )
+    .orderBy(asc(issues.sequenceId))
+    .limit(500);
+}
+
+/**
+ * Every issue in a cycle, complete or not, for the cycle page's issue panel.
+ *
+ * getIncompleteCycleIssues answers a different question — what still has to
+ * move when the cycle is completed — so it deliberately hides finished work.
+ * The panel has to show the whole cycle, or removing a completed issue from it
+ * would be impossible.
+ */
+export async function getCycleIssues(cycleId: string): Promise<
+  {
+    id: string;
+    name: string;
+    sequenceId: number;
+    identifier: string;
+    stateGroup: string;
+    stateColor: string;
+  }[]
+> {
+  return db
+    .select({
+      id: issues.id,
+      name: issues.name,
+      sequenceId: issues.sequenceId,
+      identifier: sql<string>`coalesce(${projects.identifier}, '')`,
+      stateGroup: sql<string>`coalesce(${states.group}, 'unstarted')`,
+      stateColor: sql<string>`coalesce(${states.color}, 'var(--text-300)')`,
+    })
+    .from(issues)
+    .leftJoin(states, eq(states.id, issues.stateId))
+    .leftJoin(projects, eq(projects.id, issues.projectId))
+    .where(eq(issues.cycleId, cycleId))
     .orderBy(asc(issues.sequenceId))
     .limit(500);
 }
@@ -198,11 +225,13 @@ export async function getTransferTargets(
     .limit(50);
 }
 
-
 /** Snapshot counts for one cycle, for the daily cron. */
-export async function snapshotCycleCounts(
-  cycleId: string,
-): Promise<{ total: number; completed: number; started: number; pending: number }> {
+export async function snapshotCycleCounts(cycleId: string): Promise<{
+  total: number;
+  completed: number;
+  started: number;
+  pending: number;
+}> {
   const [row] = await db
     .select({
       total: count(),
@@ -212,7 +241,7 @@ export async function snapshotCycleCounts(
     })
     .from(issues)
     .innerJoin(states, eq(states.id, issues.stateId))
-    .where(and(eq(issues.cycleId, cycleId), isNull(issues.archivedAt)));
+    .where(eq(issues.cycleId, cycleId));
 
   return {
     total: Number(row?.total ?? 0),
@@ -251,4 +280,3 @@ export async function getProjectsWithCycles(): Promise<string[]> {
     .limit(500);
   return rows.map((row) => row.projectId);
 }
-

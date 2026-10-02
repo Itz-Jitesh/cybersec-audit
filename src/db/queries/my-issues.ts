@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -72,7 +72,6 @@ export async function getMyIssues(
 ): Promise<MyIssueRow[]> {
   const conditions: SQL[] = [
     eq(issueAssignees.userId, userId),
-    isNull(issues.archivedAt),
     eq(projects.isArchived, false),
   ];
 
@@ -92,9 +91,7 @@ export async function getMyIssues(
   }
 
   if (!filters.includeClosed) {
-    conditions.push(
-      inArray(states.group, ["backlog", "unstarted", "started"]),
-    );
+    conditions.push(inArray(states.group, ["backlog", "unstarted", "started"]));
   }
 
   if (filters.stateGroups?.length) {
@@ -169,11 +166,7 @@ export async function getMyIssueProjects(
     .innerJoin(issueAssignees, eq(issueAssignees.issueId, issues.id))
     .innerJoin(projects, eq(projects.id, issues.projectId))
     .where(
-      and(
-        eq(issueAssignees.userId, userId),
-        isNull(issues.archivedAt),
-        eq(projects.isArchived, false),
-      ),
+      and(eq(issueAssignees.userId, userId), eq(projects.isArchived, false)),
     )
     .orderBy(asc(projects.name))
     .limit(50);

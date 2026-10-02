@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -12,6 +12,7 @@ import {
   ok,
 } from "@/actions/result";
 import { db } from "@/db";
+import { searchIssuesInProject } from "@/db/queries/issues";
 import { cycles, issues } from "@/db/schema";
 import { assertCan } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -20,6 +21,7 @@ import {
   completeCycleSchema,
   createCycleSchema,
   cycleIdSchema,
+  cycleIssueSearchSchema,
   updateCycleSchema,
 } from "@/lib/validators/cycle";
 
@@ -127,10 +129,7 @@ export async function createCycle(
   });
 }
 
-
-export async function updateCycle(
-  input: unknown,
-): Promise<ActionResult<null>> {
+export async function updateCycle(input: unknown): Promise<ActionResult<null>> {
   return guarded("updateCycle", async () => {
     const parsed = updateCycleSchema.safeParse(input);
     if (!parsed.success) return invalid(parsed.error);
@@ -200,9 +199,7 @@ export async function updateCycle(
   });
 }
 
-export async function deleteCycle(
-  input: unknown,
-): Promise<ActionResult<null>> {
+export async function deleteCycle(input: unknown): Promise<ActionResult<null>> {
   return guarded("deleteCycle", async () => {
     const parsed = cycleIdSchema.safeParse(input);
     if (!parsed.success) return invalid(parsed.error);
@@ -263,7 +260,6 @@ export async function assignIssuesToCycle(
         and(
           inArray(issues.id, parsed.data.issueIds),
           eq(issues.projectId, projectId),
-          isNull(issues.archivedAt),
         ),
       )
       .limit(100);
@@ -290,6 +286,31 @@ export async function assignIssuesToCycle(
     // no application insert into issue_activity, which the rules forbid.
     revalidateCycleViews(projectId);
     return ok({ assigned: rows.length });
+  });
+}
+
+/**
+ * Issues in the cycle's project, for the "add issues" picker on the cycle page.
+ *
+ * Mirrors searchModuleCandidateIssues. Reading the candidates needs only
+ * project.read; assignIssuesToCycle re-checks issue.write before anything is
+ * actually attached.
+ */
+export async function searchCycleCandidateIssues(
+  input: unknown,
+): Promise<ActionResult<Awaited<ReturnType<typeof searchIssuesInProject>>>> {
+  return guarded("searchCycleCandidateIssues", async () => {
+    const parsed = cycleIssueSearchSchema.safeParse(input);
+    if (!parsed.success) return invalid(parsed.error);
+
+    const projectId = await projectOfCycleRow(parsed.data.cycleId);
+    if (!projectId) return fail("That cycle no longer exists.", "NOT_FOUND");
+
+    const user = await getCurrentUser();
+    const guard = await assertCan(user, { kind: "project.read", projectId });
+    if (!guard.ok) return denied(guard);
+
+    return ok(await searchIssuesInProject(projectId, parsed.data.query));
   });
 }
 
@@ -329,7 +350,6 @@ export async function completeCycle(
           and(
             eq(issues.cycleId, parsed.data.cycleId),
             eq(issues.projectId, projectId),
-            isNull(issues.archivedAt),
             sql`${issues.stateId} in (select id from states where "group" not in ('completed', 'cancelled'))`,
           ),
         )
@@ -346,4 +366,3 @@ export async function completeCycle(
     return ok({ moved });
   });
 }
-

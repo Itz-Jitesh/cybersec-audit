@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Archive,
   Copy,
   GripVertical,
   Link2,
@@ -45,7 +44,6 @@ export interface IssueRowHandlers {
   onSetPriority: (issueId: string, priority: IssuePriority) => void;
   onToggleAssignee: (issueId: string, userId: string) => void;
   onToggleLabel: (issueId: string, labelId: string) => void;
-  onArchive: (issueId: string) => void;
   onDelete: (issueId: string) => void;
   onSelect: (issueId: string, event: React.MouseEvent) => void;
 }
@@ -273,10 +271,6 @@ function IssueListRowImpl({
             Copy ID
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => handlers.onArchive(issue.id)}>
-            <Archive size={14} strokeWidth={1.5} />
-            Archive
-          </DropdownMenuItem>
           {canDelete && (
             <DropdownMenuItem
               variant="destructive"

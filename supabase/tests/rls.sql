@@ -349,10 +349,27 @@ begin
   perform pg_temp.rls_record('tech lead cannot read others notifications',
     n = 0, 'saw ' || n || ' rows, expected 0');
 
+  -- Since 0015 removed archiving, deletion is the only irreversible act left on
+  -- an issue, and it is held to the workspace admin roles. A team lead runs
+  -- their team's work; erasing the record of it is not part of that.
   delete from issues where id = '90000000-0000-4000-8000-000000000030';
   get diagnostics n = row_count;
-  perform pg_temp.rls_record('tech lead can delete an issue in own project',
-    n = 1, 'deleted ' || n || ' rows');
+  perform pg_temp.rls_record('tech lead cannot delete an issue',
+    n = 0, 'deleted ' || n || ' rows, expected 0');
+end $$;
+commit;
+
+-- The admin may, which is the other half of the same rule.
+begin;
+select set_config('role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"90000000-0000-4000-8000-000000000001"}', true);
+do $$
+declare n int;
+begin
+  delete from issues where id = '90000000-0000-4000-8000-000000000030';
+  get diagnostics n = row_count;
+  perform pg_temp.rls_record('admin can delete an issue',
+    n = 1, 'deleted ' || n || ' rows, expected 1');
 end $$;
 commit;
 

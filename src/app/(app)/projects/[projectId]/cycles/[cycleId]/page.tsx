@@ -1,11 +1,19 @@
 import { format } from "date-fns";
-import { CalendarRange, CheckCircle2, CircleDashed, Loader } from "lucide-react";
+import {
+  CalendarRange,
+  CheckCircle2,
+  CircleDashed,
+  Loader,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CycleActions } from "@/components/cycles/cycle-actions";
+import { CycleIssuePanel } from "@/components/cycles/cycle-issue-panel";
+import type { StateGroup } from "@/components/shared/state-icon";
 import {
   getCycle,
+  getCycleIssues,
   getCycleSnapshots,
   getIncompleteCycleIssues,
   getTransferTargets,
@@ -105,11 +113,23 @@ export default async function CycleDetailPage({
   });
   if (!readable.ok) notFound();
 
-  const [snapshots, incomplete, transferTargets, canManage] = await Promise.all([
+  const [
+    snapshots,
+    incomplete,
+    cycleIssues,
+    transferTargets,
+    canManage,
+    canWrite,
+  ] = await Promise.all([
     getCycleSnapshots(cycleId),
     getIncompleteCycleIssues(cycleId),
+    getCycleIssues(cycleId),
     getTransferTargets(cycle.projectId, cycleId),
     canManageProject(user.id, cycle.projectId),
+    // Attaching an issue to a cycle edits the issue, so it is issue.write —
+    // the same bar as changing its state. Only creating or deleting the cycle
+    // itself needs cycle.manage.
+    assertCan(user, { kind: "issue.write", projectId: cycle.projectId }),
   ]);
 
   const pendingNow = cycle.total - cycle.completed;
@@ -122,7 +142,7 @@ export default async function CycleDetailPage({
     <div className="mx-auto w-full max-w-4xl px-6 py-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-2xs uppercase tracking-wide text-text-400">
+          <p className="text-2xs tracking-wide text-text-400 uppercase">
             <Link
               href={`/projects/${cycle.projectId}/cycles`}
               className="hover:text-text-200"
@@ -175,7 +195,7 @@ export default async function CycleDetailPage({
       </dl>
 
       <section className="mt-6">
-        <h2 className="text-2xs font-medium uppercase tracking-wide text-text-400">
+        <h2 className="text-2xs font-medium tracking-wide text-text-400 uppercase">
           Burndown
         </h2>
         <div className="mt-2 rounded-md border border-border-subtle p-4">
@@ -189,35 +209,17 @@ export default async function CycleDetailPage({
         </div>
       </section>
 
-      <section className="mt-6 pb-12">
-        <h2 className="text-2xs font-medium uppercase tracking-wide text-text-400">
-          Incomplete issues ({incomplete.length})
-        </h2>
-        {incomplete.length === 0 ? (
-          <p className="mt-2 text-xs text-text-400">
-            Nothing left open in this cycle.
-          </p>
-        ) : (
-          <ul className="mt-2 overflow-hidden rounded-md border border-border-subtle">
-            {incomplete.map((issue) => (
-              <li
-                key={issue.id}
-                className="flex h-9 items-center gap-3 border-b border-border-subtle px-3 last:border-b-0"
-              >
-                <span className="w-20 shrink-0 font-mono text-2xs text-text-400">
-                  {issue.sequenceId}
-                </span>
-                <Link
-                  href={`/projects/${cycle.projectId}/issues/${issue.id}`}
-                  className="min-w-0 flex-1 truncate text-xs text-text-100 hover:underline"
-                >
-                  {issue.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <div className="pb-12">
+        <CycleIssuePanel
+          cycleId={cycleId}
+          projectId={cycle.projectId}
+          issues={cycleIssues.map((issue) => ({
+            ...issue,
+            stateGroup: issue.stateGroup as StateGroup,
+          }))}
+          canWrite={canWrite.ok}
+        />
+      </div>
     </div>
   );
 }

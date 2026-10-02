@@ -46,10 +46,9 @@ import type {
 } from "@/db/queries/issues";
 import type { MemberRow } from "@/db/queries/project";
 // The core module, never the ./sanitize-html barrel: the barrel re-exports the
-// server sanitiser, which pulls isomorphic-dompurify and jsdom into whatever
-// imports it. In a Client Component that graph is still loaded during SSR, and
-// jsdom is not loadable there — the issue page died with ERR_REQUIRE_ESM on it.
-// isSafeUrl is pure string work and lives in the core with no DOM behind it.
+// server sanitiser, which pulls the server-side HTML parser into whatever
+// imports it. isSafeUrl is pure string work and lives in the core with nothing
+// behind it, which is why the split exists.
 import { isSafeUrl } from "@/lib/utils/sanitize-html-core";
 
 export interface IssueDetailBundle {
@@ -77,6 +76,11 @@ export interface IssueDetailBundle {
 
 interface IssueDetailProps extends IssueDetailBundle {
   states: StateOption[];
+  /**
+   * Cycles in this project, for the cycle picker. Empty is a valid state — a
+   * project need not run cycles — and the row hides itself when it is.
+   */
+  cycles?: { id: string; name: string }[];
   members: MemberRow[];
   labels: IssueLabelRef[];
   currentUserId: string;
@@ -132,6 +136,7 @@ export function IssueDetail({
   comments,
   activity,
   states,
+  cycles = [],
   members,
   labels,
   currentUserId,
@@ -502,6 +507,36 @@ export function IssueDetail({
             </button>
           </LabelDropdown>
         </Property>
+
+        {/*
+          The only way to move an issue between cycles once it exists. Before
+          this, the cycle could be chosen in the create modal and never again,
+          so an issue opened before a cycle existed could not be pulled into it.
+        */}
+        {cycles.length > 0 && (
+          <Property label="Cycle">
+            <select
+              value={issue.cycleId ?? ""}
+              disabled={pending}
+              onChange={(event) =>
+                run(() =>
+                  updateIssue({
+                    issueId: issue.id,
+                    cycleId: event.target.value || null,
+                  }),
+                )
+              }
+              className="h-7 w-full rounded-sm bg-transparent px-1.5 text-sm text-text-100 hover:bg-bg-80 focus:outline-none"
+            >
+              <option value="">No cycle</option>
+              {cycles.map((cycle) => (
+                <option key={cycle.id} value={cycle.id}>
+                  {cycle.name}
+                </option>
+              ))}
+            </select>
+          </Property>
+        )}
 
         <Property label="Start date">
           <Input

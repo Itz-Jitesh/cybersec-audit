@@ -152,7 +152,6 @@ export const bulkUpdateSchema = z.object({
   priority: prioritySchema.optional(),
   addAssigneeIds: z.array(z.string().uuid()).max(20).optional(),
   addLabelIds: z.array(z.string().uuid()).max(20).optional(),
-  archive: z.boolean().optional(),
 });
 
 export const groupBySchema = z.enum([
@@ -199,7 +198,6 @@ export const issueFilterSchema = z.object({
     })
     .optional(),
   search: z.string().trim().max(200).optional(),
-  includeArchived: z.boolean().default(false),
   limit: z.number().int().min(1).max(500).default(200),
   offset: z.number().int().min(0).default(0),
   groupBy: groupBySchema.default("state"),

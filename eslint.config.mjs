@@ -39,7 +39,7 @@ const eslintConfig = [
   },
   {
     /**
-     * Nothing under src/components/ may reach the jsdom-backed sanitiser.
+     * Nothing under src/components/ may reach the server sanitiser.
      * These files are Client Components or are imported by them, and their
      * module graph is still loaded during SSR — where jsdom fails, twice now
      * (ENOENT on its default stylesheet, ERR_REQUIRE_ESM out of
@@ -54,7 +54,7 @@ const eslintConfig = [
             {
               name: "@/lib/utils/sanitize-html",
               message:
-                "Barrel re-exports the jsdom sanitiser. Import pure helpers from @/lib/utils/sanitize-html-core, or sanitize with @/lib/utils/sanitize-html-client.",
+                "Barrel re-exports the server sanitiser. Import pure helpers from @/lib/utils/sanitize-html-core, or sanitize with @/lib/utils/sanitize-html-client.",
             },
             {
               name: "@/lib/utils/sanitize-html-server",

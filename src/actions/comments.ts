@@ -198,19 +198,21 @@ export async function toggleReaction(
     if (!guard.ok) return denied(guard);
     if (!user) return fail("You must be signed in.", "UNAUTHENTICATED");
 
+    // Whatever this person already holds on this comment, whichever emoji it
+    // is. The lookup is deliberately not filtered by emoji: a person has one
+    // reaction per comment, so picking a second one replaces the first.
     const [existing] = await db
-      .select({ id: commentReactions.id })
+      .select({ id: commentReactions.id, emoji: commentReactions.emoji })
       .from(commentReactions)
       .where(
         and(
           eq(commentReactions.commentId, parsed.data.commentId),
           eq(commentReactions.userId, user.id),
-          eq(commentReactions.emoji, parsed.data.emoji),
         ),
       )
       .limit(1);
 
-    if (existing) {
+    if (existing?.emoji === parsed.data.emoji) {
       await db
         .delete(commentReactions)
         .where(eq(commentReactions.id, existing.id));
@@ -220,13 +222,22 @@ export async function toggleReaction(
       return ok({ reacted: false });
     }
 
-    await withActor(user.id, (tx) =>
-      tx.insert(commentReactions).values({
+    // Replace as delete-then-insert rather than an update, so the write still
+    // goes through the insert policy that pins user_id to the caller. There is
+    // no update policy on this table and adding one would widen the matrix for
+    // no gain.
+    await withActor(user.id, async (tx) => {
+      if (existing) {
+        await tx
+          .delete(commentReactions)
+          .where(eq(commentReactions.id, existing.id));
+      }
+      await tx.insert(commentReactions).values({
         commentId: parsed.data.commentId,
         userId: user.id,
         emoji: parsed.data.emoji,
-      }),
-    );
+      });
+    });
 
     revalidatePath(`/projects/${context.projectId}/issues/${context.issueId}`);
     return ok({ reacted: true });
